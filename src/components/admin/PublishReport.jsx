@@ -275,45 +275,102 @@ export default function PublishReport() {
   )
 }
 
-// Editable row per platform in preview
+// Editable row per platform in preview — ALL fields
 function PlatformEditRow({ p, onChange }) {
   const [open, setOpen] = useState(false)
   const acc = p.color || '#6366f1'
 
+  const inputStyle = { width: '100%', padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 12, fontFamily: 'Arial,sans-serif', outline: 'none', background: '#fff' }
+  const sectionTitle = (color, label) => (
+    <div style={{ fontSize: 11, fontWeight: 700, color, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 6, borderBottom: `2px solid ${color}20` }}>{label}</div>
+  )
+
   return (
-    <div style={{ border: '1.5px solid rgba(0,0,0,.06)', borderRadius: 14, marginBottom: 10, overflow: 'hidden' }}>
+    <div style={{ border: `1.5px solid ${open ? acc+'40' : 'rgba(0,0,0,.06)'}`, borderRadius: 14, marginBottom: 10, overflow: 'hidden', transition: 'border-color .2s' }}>
       <button onClick={() => setOpen(v => !v)}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: open ? 'rgba(99,102,241,0.04)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: open ? acc+'08' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'background .2s' }}>
         {p.logo_url && <img src={p.logo_url} alt="" style={{ height: 22, maxWidth: 80, objectFit: 'contain' }} />}
         <span style={{ fontWeight: 700, color: '#0f172a', flex: 1 }}>{p.name}</span>
-        <span style={{ fontSize: 12, color: '#9ca3af' }}>{open ? '▲ Bağla' : '▼ Redaktə Et'}</span>
+        <span style={{ fontSize: 12, color: '#9ca3af', marginRight: 4 }}>
+          {p.done?.length || 0} iş · {p.planned_items?.length || 0} plan · {p.stats?.length || 0} KPI
+        </span>
+        <span style={{ fontSize: 11, color: acc, fontWeight: 700 }}>{open ? '▲ Bağla' : '▼ Aç'}</span>
       </button>
 
       {open && (
-        <div style={{ padding: '16px', borderTop: '1px solid rgba(0,0,0,.06)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {/* Done items */}
+        <div style={{ padding: '20px', borderTop: `1px solid ${acc}20`, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* ── Görülən İşlər ── */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>✓ Görülən İşlər</div>
+            {sectionTitle('#059669', '✓ Görülən İşlər')}
             {(p.done || []).map((item, i) => (
               <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                <input style={{ flex: 1, padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 12, fontFamily: 'Arial,sans-serif', outline: 'none' }}
-                  value={item}
-                  onChange={e => { const n = [...p.done]; n[i] = e.target.value; onChange('done', n) }} />
-                <button onClick={() => onChange('done', p.done.filter((_, j) => j !== i))}
-                  style={{ padding: '0 8px', border: '1.5px solid #fecaca', borderRadius: 8, background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                <input style={{ ...inputStyle, flex: 1 }} value={item}
+                  onChange={e => { const n = [...(p.done||[])]; n[i] = e.target.value; onChange('done', n) }} />
+                <button onClick={() => onChange('done', (p.done||[]).filter((_,j)=>j!==i))}
+                  style={{ padding: '0 10px', border: '1.5px solid #fecaca', borderRadius: 8, background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}>✕</button>
               </div>
             ))}
-            <button onClick={() => onChange('done', [...(p.done || []), ''])}
-              style={{ fontSize: 12, color: '#059669', background: 'rgba(5,150,105,0.06)', border: '1.5px solid rgba(5,150,105,0.2)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer' }}>+ Əlavə et</button>
+            <button onClick={() => onChange('done', [...(p.done||[]), ''])}
+              style={{ fontSize: 12, color: '#059669', background: 'rgba(5,150,105,0.06)', border: '1.5px solid rgba(5,150,105,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>+ İş əlavə et</button>
           </div>
 
-          {/* Issue */}
+          {/* ── Görüləcək İşlər ── */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>⚠️ Qeyd / Problem</div>
-            <textarea value={p.issue || ''}
-              onChange={e => onChange('issue', e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 12, fontFamily: 'Arial,sans-serif', outline: 'none', resize: 'vertical', minHeight: 60 }} />
+            {sectionTitle('#2563eb', '› Görüləcək İşlər')}
+            {(p.planned_items || []).map((item, i) => (
+              <div key={i} style={{ background: 'rgba(37,99,235,0.04)', borderRadius: 10, padding: '10px 12px', marginBottom: 8, border: '1px solid rgba(37,99,235,0.1)' }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  <input style={{ ...inputStyle, flex: 1 }} value={item.text}
+                    onChange={e => { const n=[...(p.planned_items||[])]; n[i]={...n[i],text:e.target.value}; onChange('planned_items',n) }} />
+                  <button onClick={() => onChange('planned_items', (p.planned_items||[]).filter((_,j)=>j!==i))}
+                    style={{ padding: '0 10px', border: '1.5px solid #fecaca', borderRadius: 8, background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>🟢 Başlama ayı</div>
+                    <input style={inputStyle} value={item.start_month || ''}
+                      onChange={e => { const n=[...(p.planned_items||[])]; n[i]={...n[i],start_month:e.target.value}; onChange('planned_items',n) }}
+                      placeholder="məs. Yanvar" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>🔴 Bitmə ayı</div>
+                    <input style={inputStyle} value={item.due_month || ''}
+                      onChange={e => { const n=[...(p.planned_items||[])]; n[i]={...n[i],due_month:e.target.value}; onChange('planned_items',n) }}
+                      placeholder="məs. Mart" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button onClick={() => onChange('planned_items', [...(p.planned_items||[]), {text:'',start_month:'',due_month:''}])}
+              style={{ fontSize: 12, color: '#2563eb', background: 'rgba(37,99,235,0.06)', border: '1.5px solid rgba(37,99,235,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>+ Plan əlavə et</button>
           </div>
+
+          {/* ── KPI / Statistika ── */}
+          <div>
+            {sectionTitle('#6366f1', '📊 KPI / Statistika')}
+            {(p.stats || []).map((s, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, marginBottom: 6 }}>
+                <input style={inputStyle} value={s.l} placeholder="Göstərici"
+                  onChange={e => { const n=[...(p.stats||[])]; n[i]={...n[i],l:e.target.value}; onChange('stats',n) }} />
+                <input style={inputStyle} value={s.v} placeholder="Dəyər"
+                  onChange={e => { const n=[...(p.stats||[])]; n[i]={...n[i],v:e.target.value}; onChange('stats',n) }} />
+                <button onClick={() => onChange('stats', (p.stats||[]).filter((_,j)=>j!==i))}
+                  style={{ padding: '0 10px', border: '1.5px solid #fecaca', borderRadius: 8, background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 14 }}>✕</button>
+              </div>
+            ))}
+            <button onClick={() => onChange('stats', [...(p.stats||[]), {v:'',l:'',u:''}])}
+              style={{ fontSize: 12, color: '#6366f1', background: 'rgba(99,102,241,0.06)', border: '1.5px solid rgba(99,102,241,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>+ KPI əlavə et</button>
+          </div>
+
+          {/* ── Qeyd ── */}
+          <div>
+            {sectionTitle('#d97706', '⚠️ Qeyd / Problem')}
+            <textarea value={p.issue || ''} onChange={e => onChange('issue', e.target.value)}
+              style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }}
+              placeholder="Mövcud problem və ya qeyd..." />
+          </div>
+
         </div>
       )}
     </div>
