@@ -1,18 +1,25 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Trash2, Upload, X, CheckCircle } from 'lucide-react'
+import { Plus, Trash2, Upload, X, CheckCircle, Calendar } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
+
+// Month options in Azerbaijani
+const MONTHS = [
+  'Yanvar','Fevral','Mart','Aprel','May','İyun',
+  'İyul','Avqust','Sentyabr','Oktyabr','Noyabr','Dekabr'
+]
+
+const CURRENT_YEAR = new Date().getFullYear()
+const YEARS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1]
 
 export default function ReportInput({ platformId, isSuperAdmin }) {
   const [platforms, setPlatforms] = useState([])
   const [selectedPlatformId, setSelectedPlatformId] = useState(platformId || '')
   const [period, setPeriod] = useState('')
-  const [periodLabel, setPeriodLabel] = useState('')
   const [doneItems, setDoneItems] = useState([''])
-  const [planMonth, setPlanMonth] = useState([''])
-  const [planQuarter, setPlanQuarter] = useState([''])
-  const [planYear, setPlanYear] = useState([''])
+  // New planned items: { text, month, year }
+  const [plannedItems, setPlannedItems] = useState([{ text: '', month: '', year: CURRENT_YEAR }])
   const [kpis, setKpis] = useState([{ label: '', value: '', unit: '' }])
   const [screenshots, setScreenshots] = useState([])
   const [screenshotFiles, setScreenshotFiles] = useState([])
@@ -39,12 +46,15 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
 
     if (data) {
       setExistingPeriodId(data.id)
-      setDoneItems(data.completed_items.map(i => i.text) || [''])
+      setDoneItems(data.completed_items.map(i => i.text).length ? data.completed_items.map(i => i.text) : [''])
+      // Load planned items with due_date
       const planned = data.planned_items || []
-      setPlanMonth(planned.filter(i => i.plan_type === 'month').map(i => i.text) || [''])
-      setPlanQuarter(planned.filter(i => i.plan_type === 'quarter').map(i => i.text) || [''])
-      setPlanYear(planned.filter(i => i.plan_type === 'year').map(i => i.text) || [''])
-      setKpis(data.statistics.map(s => ({ label: s.label, value: s.value, unit: s.unit || '' })) || [{ label: '', value: '', unit: '' }])
+      setPlannedItems(planned.length ? planned.map(i => ({
+        text: i.text,
+        month: i.due_month || '',
+        year: i.due_year || CURRENT_YEAR
+      })) : [{ text: '', month: '', year: CURRENT_YEAR }])
+      setKpis(data.statistics.length ? data.statistics.map(s => ({ label: s.label, value: s.value, unit: s.unit || '' })) : [{ label: '', value: '', unit: '' }])
       setScreenshots(data.attachments.map(a => ({ url: a.file_url, name: a.file_name })) || [])
       setIssue(data.issue_text || '')
       toast('Mövcud məlumatlar yükləndi', { icon: 'ℹ️' })
@@ -56,14 +66,27 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
 
   function resetForm() {
     setDoneItems([''])
-    setPlanMonth([''])
-    setPlanQuarter([''])
-    setPlanYear([''])
+    setPlannedItems([{ text: '', month: '', year: CURRENT_YEAR }])
     setKpis([{ label: '', value: '', unit: '' }])
     setScreenshots([])
     setScreenshotFiles([])
     setIssue('')
   }
+
+  // Planned items helpers
+  function addPlan() { setPlannedItems(prev => [...prev, { text: '', month: '', year: CURRENT_YEAR }]) }
+  function updatePlan(idx, field, val) { setPlannedItems(prev => { const n=[...prev]; n[idx]={...n[idx],[field]:val}; return n }) }
+  function removePlan(idx) { setPlannedItems(prev => prev.filter((_,i)=>i!==idx)) }
+
+  // Done items helpers
+  function addDone() { setDoneItems(prev => [...prev, '']) }
+  function updateDone(idx, val) { setDoneItems(prev => { const n=[...prev]; n[idx]=val; return n }) }
+  function removeDone(idx) { setDoneItems(prev => prev.filter((_,i)=>i!==idx)) }
+
+  // KPI helpers
+  function addKpi() { setKpis(prev => [...prev, { label: '', value: '', unit: '' }]) }
+  function updateKpi(idx, field, val) { setKpis(prev => { const n=[...prev]; n[idx]={...n[idx],[field]:val}; return n }) }
+  function removeKpi(idx) { setKpis(prev => prev.filter((_,i)=>i!==idx)) }
 
   const onDropScreenshots = useCallback(files => {
     const newFiles = files.slice(0, 10)
@@ -76,21 +99,8 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
     onDrop: onDropScreenshots, accept: { 'image/*': [] }, maxFiles: 10
   })
 
-  function addItem(setter, arr) { setter([...arr, '']) }
-  function updateItem(setter, arr, idx, val) { const n = [...arr]; n[idx] = val; setter(n) }
-  function removeItem(setter, arr, idx) { setter(arr.filter((_, i) => i !== idx)) }
-
-  function addKpi() { setKpis([...kpis, { label: '', value: '', unit: '' }]) }
-  function updateKpi(idx, field, val) { const n = [...kpis]; n[idx][field] = val; setKpis(n) }
-  function removeKpi(idx) { setKpis(kpis.filter((_, i) => i !== idx)) }
-
   function removeScreenshot(idx) {
     setScreenshots(prev => prev.filter((_, i) => i !== idx))
-    setScreenshotFiles(prev => {
-      const newFiles = [...prev]
-      newFiles.splice(idx, 0)
-      return newFiles
-    })
   }
 
   async function save() {
@@ -99,8 +109,6 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
     setSaving(true)
     try {
       let periodId = existingPeriodId
-
-      // Upsert period
       if (!periodId) {
         const { data: pData, error } = await supabase.from('report_periods').insert({
           platform_id: selectedPlatformId,
@@ -113,12 +121,10 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         await supabase.from('report_periods').update({ issue_text: issue }).eq('id', periodId)
       }
 
-      // Clear old data
       await supabase.from('completed_items').delete().eq('period_id', periodId)
       await supabase.from('planned_items').delete().eq('period_id', periodId)
       await supabase.from('statistics').delete().eq('period_id', periodId)
 
-      // Insert completed items
       const doneFiltered = doneItems.filter(i => i.trim())
       if (doneFiltered.length) {
         await supabase.from('completed_items').insert(
@@ -126,15 +132,21 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         )
       }
 
-      // Insert planned items
-      const allPlan = [
-        ...planMonth.filter(i => i.trim()).map((text, idx) => ({ period_id: periodId, text, plan_type: 'month', order_index: idx })),
-        ...planQuarter.filter(i => i.trim()).map((text, idx) => ({ period_id: periodId, text, plan_type: 'quarter', order_index: idx })),
-        ...planYear.filter(i => i.trim()).map((text, idx) => ({ period_id: periodId, text, plan_type: 'year', order_index: idx })),
-      ]
-      if (allPlan.length) await supabase.from('planned_items').insert(allPlan)
+      // Save planned items with due_month + due_year
+      const planFiltered = plannedItems.filter(i => i.text.trim())
+      if (planFiltered.length) {
+        await supabase.from('planned_items').insert(
+          planFiltered.map((item, idx) => ({
+            period_id: periodId,
+            text: item.text,
+            plan_type: 'custom',
+            due_month: item.month || null,
+            due_year: item.year || null,
+            order_index: idx
+          }))
+        )
+      }
 
-      // Insert KPIs
       const kpiFiltered = kpis.filter(k => k.label.trim() && k.value.trim())
       if (kpiFiltered.length) {
         await supabase.from('statistics').insert(
@@ -142,7 +154,6 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         )
       }
 
-      // Upload new screenshots
       for (const file of screenshotFiles) {
         const ext = file.name.split('.').pop()
         const path = `screenshots/${periodId}/${Date.now()}.${ext}`
@@ -150,10 +161,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         if (upErr) continue
         const { data: urlData } = supabase.storage.from('platform-assets').getPublicUrl(path)
         await supabase.from('attachments').insert({
-          period_id: periodId,
-          file_url: urlData.publicUrl,
-          file_name: file.name,
-          file_type: 'screenshot'
+          period_id: periodId, file_url: urlData.publicUrl, file_name: file.name, file_type: 'screenshot'
         })
       }
 
@@ -181,7 +189,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         </button>
       </div>
 
-      {/* Platform + Period selector */}
+      {/* Platform + Period */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -205,22 +213,23 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* Left: Completed + KPIs */}
+        {/* Left */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
           {/* Completed Work */}
           <div className="card">
             <div className="card-title" style={{ color: '#059669' }}>✓ Görülən İşlər</div>
             {doneItems.map((item, idx) => (
               <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                 <input className="form-input" style={{ flex: 1 }} value={item}
-                  onChange={e => updateItem(setDoneItems, doneItems, idx, e.target.value)}
+                  onChange={e => updateDone(idx, e.target.value)}
                   placeholder={`İş ${idx + 1}`} />
                 {doneItems.length > 1 && (
-                  <button className="btn btn-danger btn-sm" onClick={() => removeItem(setDoneItems, doneItems, idx)}><Trash2 size={12} /></button>
+                  <button className="btn btn-danger btn-sm" onClick={() => removeDone(idx)}><Trash2 size={12} /></button>
                 )}
               </div>
             ))}
-            <button className="btn btn-secondary btn-sm" onClick={() => addItem(setDoneItems, doneItems)} style={{ marginTop: 4 }}>
+            <button className="btn btn-secondary btn-sm" onClick={addDone} style={{ marginTop: 4 }}>
               <Plus size={12} /> Əlavə et
             </button>
           </div>
@@ -230,68 +239,74 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
             <div className="card-title" style={{ color: '#6366f1' }}>📊 Statistika / KPI</div>
             {kpis.map((kpi, idx) => (
               <div key={idx} className="kpi-input-row">
-                <input className="form-input" value={kpi.label} onChange={e => updateKpi(idx, 'label', e.target.value)} placeholder="Göstərici (məs. İstifadəçi)" />
-                <input className="form-input" value={kpi.value} onChange={e => updateKpi(idx, 'value', e.target.value)} placeholder="Dəyər (məs. 25K)" />
+                <input className="form-input" value={kpi.label} onChange={e => updateKpi(idx,'label',e.target.value)} placeholder="Göstərici" />
+                <input className="form-input" value={kpi.value} onChange={e => updateKpi(idx,'value',e.target.value)} placeholder="Dəyər" />
                 <button className="btn btn-danger btn-sm" onClick={() => removeKpi(idx)}><Trash2 size={12} /></button>
               </div>
             ))}
             <button className="btn btn-secondary btn-sm" onClick={addKpi}><Plus size={12} /> KPI əlavə et</button>
           </div>
 
-          {/* Issue / Alert */}
+          {/* Issue */}
           <div className="card">
-            <div className="card-title" style={{ color: '#d97706' }}>⚠️ Qeyd / Problem (istəyə bağlı)</div>
+            <div className="card-title" style={{ color: '#d97706' }}>⚠️ Qeyd / Problem</div>
             <textarea className="form-textarea" value={issue} onChange={e => setIssue(e.target.value)} placeholder="Mövcud problem və ya qeyd..." />
           </div>
         </div>
 
-        {/* Right: Plans + Screenshots */}
+        {/* Right */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Planned Work */}
+
+          {/* Planned Work — new format with date picker */}
           <div className="card">
-            <div className="card-title" style={{ color: '#2563eb' }}>› Planlaşdırılan İşlər</div>
-
-            {/* Month */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>Növbəti Ay</div>
-              {planMonth.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                  <input className="form-input" style={{ flex: 1 }} value={item}
-                    onChange={e => updateItem(setPlanMonth, planMonth, idx, e.target.value)}
-                    placeholder={`Plan ${idx + 1}`} />
-                  {planMonth.length > 1 && <button className="btn btn-danger btn-sm" onClick={() => removeItem(setPlanMonth, planMonth, idx)}><Trash2 size={12} /></button>}
-                </div>
-              ))}
-              <button className="btn btn-secondary btn-sm" onClick={() => addItem(setPlanMonth, planMonth)}><Plus size={12} /> Əlavə et</button>
+            <div className="card-title" style={{ color: '#2563eb' }}>
+              <Calendar size={15} /> Görüləcək İşlər
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>
+              Hər iş üçün görüləcəyi ayı seçin — public səhifədə Gantt chart kimi göstəriləcək
             </div>
 
-            {/* Quarter */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>Növbəti Rüb</div>
-              {planQuarter.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                  <input className="form-input" style={{ flex: 1 }} value={item}
-                    onChange={e => updateItem(setPlanQuarter, planQuarter, idx, e.target.value)}
-                    placeholder={`Plan ${idx + 1}`} />
-                  {planQuarter.length > 1 && <button className="btn btn-danger btn-sm" onClick={() => removeItem(setPlanQuarter, planQuarter, idx)}><Trash2 size={12} /></button>}
+            {plannedItems.map((item, idx) => (
+              <div key={idx} style={{ background: 'rgba(99,102,241,0.04)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid rgba(99,102,241,0.1)' }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  <input
+                    className="form-input"
+                    style={{ flex: 1 }}
+                    value={item.text}
+                    onChange={e => updatePlan(idx, 'text', e.target.value)}
+                    placeholder={`Görüləcək iş ${idx + 1}`}
+                  />
+                  {plannedItems.length > 1 && (
+                    <button className="btn btn-danger btn-sm" onClick={() => removePlan(idx)}><Trash2 size={12} /></button>
+                  )}
                 </div>
-              ))}
-              <button className="btn btn-secondary btn-sm" onClick={() => addItem(setPlanQuarter, planQuarter)}><Plus size={12} /> Əlavə et</button>
-            </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Calendar size={13} color="#6b7280" />
+                  <span style={{ fontSize: 11, color: '#6b7280', marginRight: 4 }}>Hədəf tarix:</span>
+                  <select
+                    className="form-select"
+                    style={{ flex: 1, fontSize: 12, padding: '6px 10px' }}
+                    value={item.month}
+                    onChange={e => updatePlan(idx, 'month', e.target.value)}
+                  >
+                    <option value="">Ay seçin...</option>
+                    {MONTHS.map((m, i) => <option key={i} value={m}>{m}</option>)}
+                  </select>
+                  <select
+                    className="form-select"
+                    style={{ width: 90, fontSize: 12, padding: '6px 10px' }}
+                    value={item.year}
+                    onChange={e => updatePlan(idx, 'year', parseInt(e.target.value))}
+                  >
+                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+            ))}
 
-            {/* Year */}
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>İl Sonuna Qədər</div>
-              {planYear.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                  <input className="form-input" style={{ flex: 1 }} value={item}
-                    onChange={e => updateItem(setPlanYear, planYear, idx, e.target.value)}
-                    placeholder={`Plan ${idx + 1}`} />
-                  {planYear.length > 1 && <button className="btn btn-danger btn-sm" onClick={() => removeItem(setPlanYear, planYear, idx)}><Trash2 size={12} /></button>}
-                </div>
-              ))}
-              <button className="btn btn-secondary btn-sm" onClick={() => addItem(setPlanYear, planYear)}><Plus size={12} /> Əlavə et</button>
-            </div>
+            <button className="btn btn-secondary btn-sm" onClick={addPlan} style={{ marginTop: 4 }}>
+              <Plus size={12} /> İş əlavə et
+            </button>
           </div>
 
           {/* Screenshots */}
@@ -302,7 +317,9 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
                 {screenshots.map((ss, idx) => (
                   <div key={idx} style={{ position: 'relative' }}>
                     <img src={ss.url} alt="" style={{ width: 100, height: 65, objectFit: 'cover', borderRadius: 8, border: '1.5px solid #e5e7eb' }} />
-                    <button onClick={() => removeScreenshot(idx)} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}><X size={10} /></button>
+                    <button onClick={() => removeScreenshot(idx)} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <X size={10} />
+                    </button>
                   </div>
                 ))}
               </div>
