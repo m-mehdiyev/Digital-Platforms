@@ -227,12 +227,16 @@ function GanttChart({ items, accentColor }) {
   if (!items || items.length === 0) return null
   const acc = accentColor || '#6366f1'
 
-  // Get all unique months that appear in items
-  const usedMonths = [...new Set(items.filter(i=>i.due_month).map(i=>i.due_month))]
-    .sort((a,b)=>MONTH_ORDER.indexOf(a)-MONTH_ORDER.indexOf(b))
+  // Collect all months across start + due
+  const allMonthSet = new Set()
+  items.forEach(i => {
+    if (i.start_month) allMonthSet.add(i.start_month)
+    if (i.due_month) allMonthSet.add(i.due_month)
+  })
+  const usedMonths = [...allMonthSet].sort((a,b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b))
 
+  // No dates at all — simple list
   if (usedMonths.length === 0) {
-    // No dates — just show as list
     return (
       <ul style={{ listStyle:'none' }}>
         {items.map((item,i)=>(
@@ -244,38 +248,70 @@ function GanttChart({ items, accentColor }) {
     )
   }
 
-  const totalMonths = usedMonths.length
+  const N = usedMonths.length
 
   return (
     <div style={{ overflowX:'auto' }}>
-      {/* Header months */}
-      <div style={{ display:'grid',gridTemplateColumns:`180px repeat(${totalMonths},1fr)`,gap:0,marginBottom:4 }}>
+      {/* Header */}
+      <div style={{ display:'grid', gridTemplateColumns:`160px repeat(${N},1fr)`, gap:0, marginBottom:4 }}>
         <div/>
         {usedMonths.map(m=>(
-          <div key={m} style={{ fontSize:9,fontWeight:700,color:'#9ca3af',textAlign:'center',letterSpacing:'.06em',textTransform:'uppercase' }}>{m.slice(0,3)}</div>
+          <div key={m} style={{ fontSize:9,fontWeight:700,color:'#9ca3af',textAlign:'center',letterSpacing:'.06em',textTransform:'uppercase',padding:'0 1px' }}>
+            {m.slice(0,3)}
+          </div>
         ))}
       </div>
 
       {/* Rows */}
       {items.map((item,i)=>{
-        const mIdx = usedMonths.indexOf(item.due_month)
+        const startIdx = usedMonths.indexOf(item.start_month)
+        const endIdx = usedMonths.indexOf(item.due_month)
+        // Determine bar range
+        const barStart = startIdx >= 0 ? startIdx : (endIdx >= 0 ? endIdx : -1)
+        const barEnd = endIdx >= 0 ? endIdx : barStart
+
         return (
-          <div key={i} style={{ display:'grid',gridTemplateColumns:`180px repeat(${totalMonths},1fr)`,gap:0,marginBottom:5,alignItems:'center' }}>
+          <div key={i} style={{ display:'grid', gridTemplateColumns:`160px repeat(${N},1fr)`, gap:0, marginBottom:6, alignItems:'center' }}>
             <div style={{ fontSize:11,color:'#374151',lineHeight:1.4,paddingRight:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }} title={item.text}>
               {item.text}
             </div>
-            {usedMonths.map((m,mi)=>(
-              <div key={m} style={{ height:18,background:mi%2===0?'rgba(0,0,0,.02)':'transparent',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center' }}>
-                {mi===mIdx&&(
-                  <div style={{ width:'80%',height:12,borderRadius:6,background:`linear-gradient(90deg,${acc},${acc}99)`,boxShadow:`0 2px 6px ${acc}40`,animation:'ganttBar .5s ease forwards',position:'relative',overflow:'hidden' }}>
-                    <div style={{ position:'absolute',top:0,left:0,right:0,height:'50%',background:'rgba(255,255,255,.2)',borderRadius:'6px 6px 0 0' }}/>
-                  </div>
-                )}
-              </div>
-            ))}
+            {usedMonths.map((m,mi)=>{
+              const inRange = barStart >= 0 && mi >= barStart && mi <= barEnd
+              const isStart = mi === barStart
+              const isEnd = mi === barEnd
+              const isSingle = barStart === barEnd
+              return (
+                <div key={m} style={{ height:22, background:mi%2===0?'rgba(0,0,0,.02)':'transparent', display:'flex', alignItems:'center', padding:'0 2px' }}>
+                  {inRange && (
+                    <div style={{
+                      height:14,
+                      width:'100%',
+                      background: `linear-gradient(90deg,${acc}dd,${acc}99)`,
+                      borderRadius: isSingle ? 6 : isStart ? '6px 0 0 6px' : isEnd ? '0 6px 6px 0' : 0,
+                      boxShadow:`0 2px 6px ${acc}35`,
+                      position:'relative',
+                      overflow:'hidden',
+                      animation:'ganttBar .5s ease forwards',
+                    }}>
+                      <div style={{ position:'absolute',top:0,left:0,right:0,height:'45%',background:'rgba(255,255,255,.25)',borderRadius:'inherit' }}/>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )
       })}
+
+      {/* Legend */}
+      <div style={{ display:'flex',gap:12,marginTop:8,flexWrap:'wrap' }}>
+        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:10,color:'#9ca3af' }}>
+          <div style={{ width:16,height:8,borderRadius:'4px 0 0 4px',background:acc+'dd' }}/> Başlama
+        </div>
+        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:10,color:'#9ca3af' }}>
+          <div style={{ width:16,height:8,borderRadius:'0 4px 4px 0',background:acc+'88' }}/> Bitmə
+        </div>
+      </div>
     </div>
   )
 }

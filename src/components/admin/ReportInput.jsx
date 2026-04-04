@@ -10,6 +10,8 @@ const MONTHS = [
   'İyul','Avqust','Sentyabr','Oktyabr','Noyabr','Dekabr'
 ]
 
+// planned item default: { text, start_month, start_year, due_month, due_year }
+
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1]
 
@@ -19,7 +21,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
   const [period, setPeriod] = useState('')
   const [doneItems, setDoneItems] = useState([''])
   // New planned items: { text, month, year }
-  const [plannedItems, setPlannedItems] = useState([{ text: '', month: '', year: CURRENT_YEAR }])
+  const [plannedItems, setPlannedItems] = useState([{ text: '', start_month: '', start_year: CURRENT_YEAR, due_month: '', due_year: CURRENT_YEAR }])
   const [kpis, setKpis] = useState([{ label: '', value: '', unit: '' }])
   const [screenshots, setScreenshots] = useState([])
   const [screenshotFiles, setScreenshotFiles] = useState([])
@@ -51,9 +53,11 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
       const planned = data.planned_items || []
       setPlannedItems(planned.length ? planned.map(i => ({
         text: i.text,
-        month: i.due_month || '',
-        year: i.due_year || CURRENT_YEAR
-      })) : [{ text: '', month: '', year: CURRENT_YEAR }])
+        start_month: i.start_month || '',
+        start_year: i.start_year || CURRENT_YEAR,
+        due_month: i.due_month || '',
+        due_year: i.due_year || CURRENT_YEAR
+      })) : [{ text: '', start_month: '', start_year: CURRENT_YEAR, due_month: '', due_year: CURRENT_YEAR }])
       setKpis(data.statistics.length ? data.statistics.map(s => ({ label: s.label, value: s.value, unit: s.unit || '' })) : [{ label: '', value: '', unit: '' }])
       setScreenshots(data.attachments.map(a => ({ url: a.file_url, name: a.file_name })) || [])
       setIssue(data.issue_text || '')
@@ -66,7 +70,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
 
   function resetForm() {
     setDoneItems([''])
-    setPlannedItems([{ text: '', month: '', year: CURRENT_YEAR }])
+    setPlannedItems([{ text: '', start_month: '', start_year: CURRENT_YEAR, due_month: '', due_year: CURRENT_YEAR }])
     setKpis([{ label: '', value: '', unit: '' }])
     setScreenshots([])
     setScreenshotFiles([])
@@ -74,7 +78,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
   }
 
   // Planned items helpers
-  function addPlan() { setPlannedItems(prev => [...prev, { text: '', month: '', year: CURRENT_YEAR }]) }
+  function addPlan() { setPlannedItems(prev => [...prev, { text: '', start_month: '', start_year: CURRENT_YEAR, due_month: '', due_year: CURRENT_YEAR }]) }
   function updatePlan(idx, field, val) { setPlannedItems(prev => { const n=[...prev]; n[idx]={...n[idx],[field]:val}; return n }) }
   function removePlan(idx) { setPlannedItems(prev => prev.filter((_,i)=>i!==idx)) }
 
@@ -132,7 +136,6 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         )
       }
 
-      // Save planned items with due_month + due_year
       const planFiltered = plannedItems.filter(i => i.text.trim())
       if (planFiltered.length) {
         await supabase.from('planned_items').insert(
@@ -140,8 +143,10 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
             period_id: periodId,
             text: item.text,
             plan_type: 'custom',
-            due_month: item.month || null,
-            due_year: item.year || null,
+            start_month: item.start_month || null,
+            start_year: item.start_year || null,
+            due_month: item.due_month || null,
+            due_year: item.due_year || null,
             order_index: idx
           }))
         )
@@ -257,18 +262,18 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         {/* Right */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Planned Work — new format with date picker */}
+          {/* Planned Work */}
           <div className="card">
             <div className="card-title" style={{ color: '#2563eb' }}>
               <Calendar size={15} /> Görüləcək İşlər
             </div>
             <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>
-              Hər iş üçün görüləcəyi ayı seçin — public səhifədə Gantt chart kimi göstəriləcək
+              Başlama və bitmə ayını seçin — public səhifədə Gantt chart kimi göstəriləcək
             </div>
 
             {plannedItems.map((item, idx) => (
               <div key={idx} style={{ background: 'rgba(99,102,241,0.04)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, border: '1px solid rgba(99,102,241,0.1)' }}>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                   <input
                     className="form-input"
                     style={{ flex: 1 }}
@@ -280,26 +285,41 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
                     <button className="btn btn-danger btn-sm" onClick={() => removePlan(idx)}><Trash2 size={12} /></button>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <Calendar size={13} color="#6b7280" />
-                  <span style={{ fontSize: 11, color: '#6b7280', marginRight: 4 }}>Hədəf tarix:</span>
-                  <select
-                    className="form-select"
-                    style={{ flex: 1, fontSize: 12, padding: '6px 10px' }}
-                    value={item.month}
-                    onChange={e => updatePlan(idx, 'month', e.target.value)}
-                  >
-                    <option value="">Ay seçin...</option>
-                    {MONTHS.map((m, i) => <option key={i} value={m}>{m}</option>)}
-                  </select>
-                  <select
-                    className="form-select"
-                    style={{ width: 90, fontSize: 12, padding: '6px 10px' }}
-                    value={item.year}
-                    onChange={e => updatePlan(idx, 'year', parseInt(e.target.value))}
-                  >
-                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {/* Start */}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>🟢 Başlama</div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <select className="form-select" style={{ flex: 1, fontSize: 12, padding: '6px 8px' }}
+                        value={item.start_month}
+                        onChange={e => updatePlan(idx, 'start_month', e.target.value)}>
+                        <option value="">Ay...</option>
+                        {MONTHS.map((m, i) => <option key={i} value={m}>{m}</option>)}
+                      </select>
+                      <select className="form-select" style={{ width: 82, fontSize: 12, padding: '6px 8px' }}
+                        value={item.start_year}
+                        onChange={e => updatePlan(idx, 'start_year', parseInt(e.target.value))}>
+                        {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  {/* End */}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>🔴 Bitmə</div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <select className="form-select" style={{ flex: 1, fontSize: 12, padding: '6px 8px' }}
+                        value={item.due_month}
+                        onChange={e => updatePlan(idx, 'due_month', e.target.value)}>
+                        <option value="">Ay...</option>
+                        {MONTHS.map((m, i) => <option key={i} value={m}>{m}</option>)}
+                      </select>
+                      <select className="form-select" style={{ width: 82, fontSize: 12, padding: '6px 8px' }}
+                        value={item.due_year}
+                        onChange={e => updatePlan(idx, 'due_year', parseInt(e.target.value))}>
+                        {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
