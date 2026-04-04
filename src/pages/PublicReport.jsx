@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function PublicReport() {
@@ -6,9 +6,7 @@ export default function PublicReport() {
   const [selectedReport, setSelectedReport] = useState(null)
   const [loading, setLoading] = useState(true)
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [snapOn, setSnapOn] = useState(true)
   const [showPeriodPicker, setShowPeriodPicker] = useState(false)
-  const platRef = useRef(null)
 
   useEffect(() => { fetchReports() }, [])
 
@@ -43,10 +41,11 @@ export default function PublicReport() {
 
   function goToSlide(idx) {
     setCurrentSlide(idx)
-    const cont = platRef.current
-    if (!cont) return
-    const slides = cont.querySelectorAll('.pslide')
-    if (slides[idx]) cont.scrollTo({ top: slides[idx].offsetTop, behavior: 'smooth' })
+    const el = document.getElementById(platforms[idx]?.id)
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 67
+      window.scrollTo({ top, behavior: 'smooth' })
+    }
   }
 
   function toggleSnap() {
@@ -78,11 +77,6 @@ export default function PublicReport() {
       <nav style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
         <div style={{ fontSize:14,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
-          <button onClick={toggleSnap} style={{ display:'flex',alignItems:'center',gap:6,background:snapOn?'rgba(99,102,241,0.08)':'rgba(0,0,0,0.04)',border:`1.5px solid ${snapOn?'rgba(99,102,241,0.2)':'#e5e7eb'}`,borderRadius:100,padding:'5px 14px',fontSize:11,fontWeight:700,color:snapOn?'#6366f1':'#9ca3af',cursor:'pointer',transition:'all .22s' }}>
-            <span style={{ width:8,height:8,borderRadius:'50%',background:snapOn?'#6366f1':'#d1d5db',flexShrink:0 }}/>
-            Snap: {snapOn?'ON':'OFF'}
-          </button>
-
           {/* Period picker */}
           <div style={{ position:'relative' }}>
             <button
@@ -170,15 +164,10 @@ export default function PublicReport() {
           </div>
         </section>
 
-        {/* PLATFORM SNAP VIEWER */}
-        <div id="platforms" ref={platRef}
-          style={{ height:'calc(100vh - 67px)',overflowY:'scroll',scrollSnapType:'y mandatory',position:'relative' }}
-          onScroll={e=>{
-            const slides=e.target.querySelectorAll('.pslide')
-            slides.forEach((s,i)=>{ const r=s.getBoundingClientRect(); if(r.top>=-50&&r.top<window.innerHeight/2) setCurrentSlide(i) })
-          }}>
+        {/* PLATFORM VIEWER — normal scroll, snap yoxdur */}
+        <div id="platforms" style={{ position:'relative' }}>
           {platforms.map((p,idx)=>(
-            <PlatformSlide key={p.id+selectedReport.id} p={p} idx={idx} total={platforms.length} goToSlide={goToSlide} currentSlide={currentSlide}/>
+            <PlatformSlide key={p.id+selectedReport.id} p={p} idx={idx}/>
           ))}
         </div>
 
@@ -229,16 +218,14 @@ function PlannedList({ items, accentColor }) {
   return (
     <ul style={{ listStyle:'none' }}>
       {items.map((item,i)=>{
-        const hasDate = item.start_month || item.due_month
-        const dateStr = [
-          item.start_month ? item.start_month.slice(0,3) : null,
-          item.due_month ? item.due_month.slice(0,3) : null
-        ].filter(Boolean).join(' → ')
+        const startStr = [item.start_month, item.start_year].filter(Boolean).join(' ')
+        const endStr = [item.due_month, item.due_year].filter(Boolean).join(' ')
+        const dateStr = [startStr, endStr].filter(Boolean).join(' → ')
         return (
           <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:12,color:'#374151',lineHeight:1.5,padding:'6px 0',borderBottom:i<items.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
             <i style={{ fontStyle:'normal',fontSize:13,color:acc,flexShrink:0,lineHeight:1.4 }}>›</i>
             <span style={{ flex:1 }}>{item.text}</span>
-            {hasDate && (
+            {dateStr && (
               <span style={{ fontSize:10,fontWeight:700,color:acc,background:acc+'14',padding:'2px 7px',borderRadius:100,flexShrink:0,whiteSpace:'nowrap' }}>
                 {dateStr}
               </span>
@@ -250,7 +237,7 @@ function PlannedList({ items, accentColor }) {
   )
 }
 
-function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
+function PlatformSlide({ p, idx }) {
   const [lightbox,setLightbox] = useState(null)
   const done = p.done||[]
   const plannedItems = p.planned_items || []
@@ -258,20 +245,15 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
   const screenshots = p.screenshots||[]
   const acc = p.color||'#6366f1'
 
-  const dots = Array.from({length:total},(_,i)=>(
-    <button key={i} onClick={()=>goToSlide(i)}
-      style={{ width:i===currentSlide?20:6,height:6,borderRadius:i===currentSlide?3:'50%',background:i===currentSlide?'#6366f1':'#d1d5db',border:'none',cursor:'pointer',transition:'all .25s',padding:0,flexShrink:0 }}/>
-  ))
-
   return (
     <>
       <div className="pslide" id={p.id} data-idx={idx}
-        style={{ height:'100%',minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 3vw 48px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflowY:'auto' }}>
-        <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.06,pointerEvents:'none' }}/>
+        style={{ minHeight:'100vh',display:'flex',flexDirection:'column',justifyContent:'center',padding:'80px 4vw 48px',position:'relative',background:idx%2===0?'linear-gradient(160deg,#f8f9ff,#f0f4ff)':'linear-gradient(160deg,#f0f4ff,#f8f9ff)' }}>
+        <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.05,pointerEvents:'none' }}/>
 
-        <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:11 }}>
+        <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:14 }}>
           {/* Header */}
-          <div style={{ display:'flex',alignItems:'center',gap:16 }}>
+          <div style={{ display:'flex',alignItems:'center',gap:16,flexWrap:'wrap' }}>
             <div style={{ height:42,display:'flex',alignItems:'center' }}>
               {p.logo_url?<img src={p.logo_url} alt={p.name} style={{ maxHeight:42,maxWidth:200,objectFit:'contain',objectPosition:'left' }}/>:<span style={{ fontSize:20,fontWeight:700,color:acc }}>{p.name}</span>}
             </div>
@@ -282,7 +264,7 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
           {stats.length>0&&(
             <div style={{ display:'grid',gridTemplateColumns:`repeat(${Math.min(stats.length,4)},1fr)`,gap:9 }}>
               {stats.map((s,i)=>(
-                <div key={i} style={{ background:'rgba(255,255,255,.8)',border:'1.5px solid rgba(255,255,255,.95)',borderRadius:14,padding:'12px 15px',backdropFilter:'blur(8px)',boxShadow:'0 2px 12px rgba(60,60,120,0.07)' }}>
+                <div key={i} style={{ background:'rgba(255,255,255,.85)',border:'1.5px solid rgba(255,255,255,.95)',borderRadius:14,padding:'12px 15px',backdropFilter:'blur(8px)',boxShadow:'0 2px 12px rgba(60,60,120,0.07)' }}>
                   <span style={{ display:'block',fontSize:22,fontWeight:700,color:acc,lineHeight:1,marginBottom:3 }}>{s.v}</span>
                   <span style={{ display:'block',fontSize:10,color:'#6b7280' }}>{s.l}</span>
                 </div>
@@ -290,40 +272,34 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
             </div>
           )}
 
-          {/* Body — flexWrap: mobile-da şəkillər aşağıya düşür */}
-          <div style={{ display:'flex',gap:12,alignItems:'flex-start',flexWrap:'wrap' }}>
-            <div style={{ display:'flex',flexDirection:'column',gap:11,flex:'1 1 320px',minWidth:0 }}>
-              {/* Done + Planned side by side */}
+          {/* Body */}
+          <div style={{ display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap' }}>
+            <div style={{ display:'flex',flexDirection:'column',gap:11,flex:'1 1 340px',minWidth:0 }}>
               <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:11 }}>
-                {/* Completed */}
-                <div className="glass-card" style={{ padding:'14px 18px',borderTop:`3px solid ${acc}` }}>
-                  <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:acc,marginBottom:11 }}>✓ Görülən İşlər</div>
+                {/* Görülən */}
+                <div className="glass-card" style={{ padding:'16px 20px',borderTop:`3px solid ${acc}` }}>
+                  <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:acc,marginBottom:12 }}>✓ Görülən İşlər</div>
                   <ul style={{ listStyle:'none' }}>
                     {done.length?done.map((d,i)=>(
                       <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:12,color:'#374151',lineHeight:1.5,padding:'5px 0',borderBottom:i<done.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
-                        <i style={{ fontStyle:'normal',fontSize:11,fontWeight:700,color:'#16a34a',flexShrink:0,marginTop:1 }}>✓</i>{d}
+                        <i style={{ fontStyle:'normal',fontSize:11,fontWeight:700,color:'#16a34a',flexShrink:0,marginTop:2 }}>✓</i>{d}
                       </li>
                     )):<li style={{ color:'#9ca3af',fontStyle:'italic',fontSize:12 }}>Məlumat yoxdur</li>}
                   </ul>
                 </div>
-
-                {/* Planned list */}
-                <div className="glass-card" style={{ padding:'14px 18px' }}>
-                  <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:'#2563eb',marginBottom:11 }}>
-                    📅 Görüləcək İşlər
-                  </div>
+                {/* Görüləcək */}
+                <div className="glass-card" style={{ padding:'16px 20px' }}>
+                  <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:'#2563eb',marginBottom:12 }}>📅 Görüləcək İşlər</div>
                   <PlannedList items={plannedItems} accentColor={acc}/>
                 </div>
               </div>
-
               {p.issue&&(
-                <div style={{ display:'flex',gap:8,alignItems:'flex-start',background:'#fffbeb',border:'1px solid rgba(245,158,11,.25)',borderRadius:10,padding:'9px 13px',fontSize:11,color:'#92400e' }}>
+                <div style={{ display:'flex',gap:8,alignItems:'flex-start',background:'#fffbeb',border:'1px solid rgba(245,158,11,.25)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#92400e' }}>
                   <span>⚠️</span><span>{p.issue}</span>
                 </div>
               )}
             </div>
-
-            {/* Screenshots — flex-basis:260px, mobil-da tam genişlik */}
+            {/* Screenshots */}
             {screenshots.length>0&&(
               <div style={{ flex:'0 0 240px',minWidth:0 }}>
                 <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:acc,marginBottom:10 }}>📷 Ekran Görüntüləri</div>
@@ -341,10 +317,6 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
               </div>
             )}
           </div>
-        </div>
-
-        <div style={{ position:'absolute',bottom:12,left:'50%',transform:'translateX(-50%)',display:'flex',gap:5,alignItems:'center' }}>
-          {dots}
         </div>
       </div>
 
