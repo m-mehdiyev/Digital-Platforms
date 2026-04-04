@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-const MONTH_ORDER = ['Yanvar','Fevral','Mart','Aprel','May','İyun','İyul','Avqust','Sentyabr','Oktyabr','Noyabr','Dekabr']
-
 export default function PublicReport() {
   const [reports, setReports] = useState([])
   const [selectedReport, setSelectedReport] = useState(null)
@@ -223,60 +221,32 @@ function OvCard({ p, idx, goToSlide, scrollToPlatforms }) {
 }
 
 /* ── Gantt Chart ── */
-function GanttChart({ items, accentColor }) {
-  if (!items || items.length === 0) return null
+function PlannedList({ items, accentColor }) {
+  if (!items || items.length === 0) return (
+    <div style={{ color:'#9ca3af',fontStyle:'italic',fontSize:12 }}>Məlumat yoxdur</div>
+  )
   const acc = accentColor || '#6366f1'
-
-  // Get all unique months that appear in items
-  const usedMonths = [...new Set(items.filter(i=>i.due_month).map(i=>i.due_month))]
-    .sort((a,b)=>MONTH_ORDER.indexOf(a)-MONTH_ORDER.indexOf(b))
-
-  if (usedMonths.length === 0) {
-    // No dates — just show as list
-    return (
-      <ul style={{ listStyle:'none' }}>
-        {items.map((item,i)=>(
-          <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:12,color:'#374151',lineHeight:1.5,padding:'5px 0',borderBottom:i<items.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
-            <i style={{ fontStyle:'normal',fontSize:13,color:acc,flexShrink:0,lineHeight:1 }}>›</i>{item.text}
-          </li>
-        ))}
-      </ul>
-    )
-  }
-
-  const totalMonths = usedMonths.length
-
   return (
-    <div style={{ overflowX:'auto' }}>
-      {/* Header months */}
-      <div style={{ display:'grid',gridTemplateColumns:`180px repeat(${totalMonths},1fr)`,gap:0,marginBottom:4 }}>
-        <div/>
-        {usedMonths.map(m=>(
-          <div key={m} style={{ fontSize:9,fontWeight:700,color:'#9ca3af',textAlign:'center',letterSpacing:'.06em',textTransform:'uppercase' }}>{m.slice(0,3)}</div>
-        ))}
-      </div>
-
-      {/* Rows */}
+    <ul style={{ listStyle:'none' }}>
       {items.map((item,i)=>{
-        const mIdx = usedMonths.indexOf(item.due_month)
+        const hasDate = item.start_month || item.due_month
+        const dateStr = [
+          item.start_month ? item.start_month.slice(0,3) : null,
+          item.due_month ? item.due_month.slice(0,3) : null
+        ].filter(Boolean).join(' → ')
         return (
-          <div key={i} style={{ display:'grid',gridTemplateColumns:`180px repeat(${totalMonths},1fr)`,gap:0,marginBottom:5,alignItems:'center' }}>
-            <div style={{ fontSize:11,color:'#374151',lineHeight:1.4,paddingRight:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }} title={item.text}>
-              {item.text}
-            </div>
-            {usedMonths.map((m,mi)=>(
-              <div key={m} style={{ height:18,background:mi%2===0?'rgba(0,0,0,.02)':'transparent',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center' }}>
-                {mi===mIdx&&(
-                  <div style={{ width:'80%',height:12,borderRadius:6,background:`linear-gradient(90deg,${acc},${acc}99)`,boxShadow:`0 2px 6px ${acc}40`,animation:'ganttBar .5s ease forwards',position:'relative',overflow:'hidden' }}>
-                    <div style={{ position:'absolute',top:0,left:0,right:0,height:'50%',background:'rgba(255,255,255,.2)',borderRadius:'6px 6px 0 0' }}/>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:12,color:'#374151',lineHeight:1.5,padding:'6px 0',borderBottom:i<items.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
+            <i style={{ fontStyle:'normal',fontSize:13,color:acc,flexShrink:0,lineHeight:1.4 }}>›</i>
+            <span style={{ flex:1 }}>{item.text}</span>
+            {hasDate && (
+              <span style={{ fontSize:10,fontWeight:700,color:acc,background:acc+'14',padding:'2px 7px',borderRadius:100,flexShrink:0,whiteSpace:'nowrap' }}>
+                {dateStr}
+              </span>
+            )}
+          </li>
         )
       })}
-    </div>
+    </ul>
   )
 }
 
@@ -296,7 +266,7 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
   return (
     <>
       <div className="pslide" id={p.id} data-idx={idx}
-        style={{ height:'100%',minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 4vw 44px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflow:'hidden' }}>
+        style={{ height:'100%',minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 3vw 48px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflowY:'auto' }}>
         <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.06,pointerEvents:'none' }}/>
 
         <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:11 }}>
@@ -320,10 +290,10 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
             </div>
           )}
 
-          {/* Body */}
-          <div style={{ display:'flex',gap:12,alignItems:'flex-start' }}>
-            <div style={{ display:'flex',flexDirection:'column',gap:11,flex:1,minWidth:0 }}>
-              {/* Done + Gantt side by side */}
+          {/* Body — flexWrap: mobile-da şəkillər aşağıya düşür */}
+          <div style={{ display:'flex',gap:12,alignItems:'flex-start',flexWrap:'wrap' }}>
+            <div style={{ display:'flex',flexDirection:'column',gap:11,flex:'1 1 320px',minWidth:0 }}>
+              {/* Done + Planned side by side */}
               <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:11 }}>
                 {/* Completed */}
                 <div className="glass-card" style={{ padding:'14px 18px',borderTop:`3px solid ${acc}` }}>
@@ -337,14 +307,12 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
                   </ul>
                 </div>
 
-                {/* Gantt chart */}
+                {/* Planned list */}
                 <div className="glass-card" style={{ padding:'14px 18px' }}>
                   <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:'#2563eb',marginBottom:11 }}>
                     📅 Görüləcək İşlər
                   </div>
-                  {plannedItems.length>0
-                    ? <GanttChart items={plannedItems} accentColor={acc}/>
-                    : <div style={{ color:'#9ca3af',fontStyle:'italic',fontSize:12 }}>Məlumat yoxdur</div>}
+                  <PlannedList items={plannedItems} accentColor={acc}/>
                 </div>
               </div>
 
@@ -355,9 +323,9 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
               )}
             </div>
 
-            {/* Screenshots */}
+            {/* Screenshots — flex-basis:260px, mobil-da tam genişlik */}
             {screenshots.length>0&&(
-              <div style={{ flexShrink:0,width:260 }}>
+              <div style={{ flex:'0 0 240px',minWidth:0 }}>
                 <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:acc,marginBottom:10 }}>📷 Ekran Görüntüləri</div>
                 {screenshots.length===1?(
                   <div onClick={()=>setLightbox(0)} style={{ borderRadius:14,overflow:'hidden',cursor:'zoom-in',boxShadow:'0 4px 20px rgba(0,0,0,.12)',border:'1.5px solid rgba(255,255,255,.8)' }}>
