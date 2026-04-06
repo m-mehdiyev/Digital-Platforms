@@ -26,7 +26,8 @@ export default function PublicReport() {
 
   if (loading) return (
     <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16 }}>
-      <div className="spinner" /><p style={{ fontSize:15,color:'#6b7280' }}>Hesabat yüklənir...</p>
+      <div className="spinner" />
+      <p style={{ fontSize:15,color:'#6b7280' }}>Hesabat yüklənir...</p>
     </div>
   )
 
@@ -42,54 +43,54 @@ export default function PublicReport() {
   const platforms = rd?.platforms || []
   const period = rd?.period || report.period_label
 
-function goToSlide(idx) {
-  setCurrentSlide(idx)
-  const cont = platRef.current
-  if (!cont) return
-
-  const slides = cont.querySelectorAll('.pslide')
-  const target = slides[idx]
-  if (!target) return
-
-  target.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-  })
-}
-
-function toggleSnap() {
-  setSnapOn(prev => {
-    const next = !prev
-    if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y proximity' : 'none'
-    return next
-  })
-}
-
-function switchReport(r) {
-  setReport(r)
-  setCurrentSlide(0)
-  setShowPicker(false)
-}
-
-useEffect(() => {
-  function handleScroll() {
+  function goToSlide(idx) {
+    setCurrentSlide(idx)
     const cont = platRef.current
     if (!cont) return
 
     const slides = cont.querySelectorAll('.pslide')
-    slides.forEach((s, i) => {
-      const r = s.getBoundingClientRect()
-      if (r.top >= -120 && r.top < window.innerHeight / 2) {
-        setCurrentSlide(i)
-      }
+    const target = slides[idx]
+    if (!target) return
+
+    target.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
     })
   }
 
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  handleScroll()
+  function toggleSnap() {
+    setSnapOn(prev => {
+      const next = !prev
+      if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y proximity' : 'none'
+      return next
+    })
+  }
 
-  return () => window.removeEventListener('scroll', handleScroll)
-}, [report])
+  function switchReport(r) {
+    setReport(r)
+    setCurrentSlide(0)
+    setShowPicker(false)
+  }
+
+  useEffect(() => {
+    function handleScroll() {
+      const cont = platRef.current
+      if (!cont) return
+
+      const slides = cont.querySelectorAll('.pslide')
+      slides.forEach((s, i) => {
+        const r = s.getBoundingClientRect()
+        if (r.top >= -120 && r.top < window.innerHeight / 2) {
+          setCurrentSlide(i)
+        }
+      })
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [report])
 
   return (
     <div style={{ position:'relative',minHeight:'100vh' }}>
@@ -97,7 +98,7 @@ useEffect(() => {
       <CursorGlow />
       <ProgressBar />
       <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} className="pub-sidebar"/>
-
+      
       <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(2
       4px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
         <div style={{ fontSize:15,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
