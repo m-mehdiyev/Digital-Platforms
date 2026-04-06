@@ -331,7 +331,7 @@ function GanttChart({ planned, acc }) {
                               style={{
                                 position:'absolute',
                                 right:-5,
-                                top:24,
+                                top:21,
                                 width:9,
                                 height:9,
                                 background:'#D85A30',
