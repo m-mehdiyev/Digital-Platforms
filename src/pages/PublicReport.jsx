@@ -50,13 +50,13 @@ export default function PublicReport() {
     if (slides[idx]) cont.scrollTo({ top: slides[idx].offsetTop, behavior: 'smooth' })
   }
 
-  function toggleSnap() {
-    setSnapOn(prev => {
-      const next = !prev
-      if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y mandatory' : 'none'
-      return next
-    })
-  }
+function toggleSnap() {
+  setSnapOn(prev => {
+    const next = !prev
+    if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y proximity' : 'none'
+    return next
+  })
+}
 
   function switchReport(r) {
     setReport(r)
@@ -156,8 +156,14 @@ export default function PublicReport() {
         </section>
 
         {/* PLATFORM SNAP VIEWER */}
-        <div id="platforms" ref={platRef}
-          style={{ height:'calc(100vh - 67px)',overflowY:'scroll',scrollSnapType:'y mandatory',position:'relative' }}
+       <div id="platforms" ref={platRef}
+  style={{
+    height: 'calc(100vh - 67px)',
+    overflowY: 'auto',
+    scrollSnapType: snapOn ? 'y proximity' : 'none',
+    scrollBehavior: 'smooth',
+    position: 'relative'
+  }}
           onScroll={e=>{
             const slides=e.target.querySelectorAll('.pslide')
             slides.forEach((s,i)=>{ const r=s.getBoundingClientRect(); if(r.top>=-50&&r.top<window.innerHeight/2) setCurrentSlide(i) })
