@@ -235,25 +235,34 @@ function GanttChart({ planned, acc }) {
 
   return (
     <div className="glass-card" style={{ padding:'14px 18px', marginTop:0 }}>
-      <div style={{ fontSize:12, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color:acc, marginBottom:12 }}>
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: '.07em',
+          textTransform: 'uppercase',
+          color: acc,
+          marginBottom: 12
+        }}
+      >
         📅 İş Planı
       </div>
 
-      <div style={{ overflowX:'auto' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:560 }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
             <tr>
-              <th style={{ width:140, minWidth:100 }}></th>
+              <th style={{ width: 140, minWidth: 100 }}></th>
               {MONTHS_AZ.map((m, i) => (
                 <th
                   key={i}
                   style={{
-                    fontSize:9,
-                    color:'#9ca3af',
-                    fontWeight:500,
-                    textAlign:'center',
-                    paddingBottom:4,
-                    minWidth:34
+                    fontSize: 9,
+                    color: '#9ca3af',
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    paddingBottom: 4,
+                    minWidth: 34
                   }}
                 >
                   {m}
@@ -273,14 +282,14 @@ function GanttChart({ planned, acc }) {
                 <tr key={ri}>
                   <td
                     style={{
-                      fontSize:11,
-                      color:'#374151',
-                      paddingRight:6,
-                      paddingBottom:2,
-                      maxWidth:140,
-                      overflow:'hidden',
-                      textOverflow:'ellipsis',
-                      whiteSpace:'nowrap'
+                      fontSize: 11,
+                      color: '#374151',
+                      paddingRight: 6,
+                      paddingBottom: 2,
+                      maxWidth: 140,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     {item.text}
@@ -294,71 +303,67 @@ function GanttChart({ planned, acc }) {
                       <td
                         key={mi}
                         style={{
-                          padding:'1px',
-                          height:38,
-                          position:'relative',
-                          minWidth:34
+                          padding: '1px',
+                          height: 38,
+                          position: 'relative',
+                          minWidth: 34
                         }}
                       >
                         <div
                           style={{
-                            borderRight:'1px solid rgba(0,0,0,.05)',
-                            height:'100%',
-                            position:'absolute',
-                            right:0,
-                            top:0
+                            borderRight: '1px solid rgba(0,0,0,.05)',
+                            height: '100%',
+                            position: 'absolute',
+                            right: 0,
+                            top: 0
                           }}
                         />
 
-                     {inRange && (
-  <div
-    style={{
-      position:'absolute',
-      left:1,
-      right:1,
-      top:'50%',
-      height:10,
-      borderRadius:2,
-      background:'#888780',
-      opacity:.6,
-      transform:'translateY(-50%)'
-    }}
-  />
-{isMsEnd && (
-  <>
-    <div
-      style={{
-        position:'absolute',
-        right:-5,
-        top:'50%',
-        width:9,
-        height:9,
-        background:'#D85A30',
-        transform:'translateY(-50%) rotate(45deg)',
-        zIndex:3
-      }}
-    />
+                        {inRange && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: 1,
+                              right: 1,
+                              top: '50%',
+                              height: 10,
+                              borderRadius: 2,
+                              background: '#888780',
+                              opacity: 0.6,
+                              transform: 'translateY(-50%)'
+                            }}
+                          />
+                        )}
 
-    {item.milestone_label && (
-      <div
-        style={{
-          position:'absolute',
-          right:-10,
-          top:'50%',
-          transform:'translate(-10%, -170%)',
-          fontSize:10,
-          fontWeight:600,
-          color:'#D85A30',
-          whiteSpace:'nowrap',
-          lineHeight:1,
-          zIndex:3
-        }}
-      >
-        {item.milestone_label}
-      </div>
-    )}
-  </>
-)}
+                        {isMsEnd && (
+                          <>
+                            <div
+                              style={{
+                                position: 'absolute',
+                                right: -5,
+                                top: '50%',
+                                width: 9,
+                                height: 9,
+                                background: '#D85A30',
+                                transform: 'translateY(-50%) rotate(45deg)',
+                                zIndex: 3
+                              }}
+                            />
+
+                            {item.milestone_label && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  right: -10,
+                                  top: '50%',
+                                  transform: 'translate(-10%, -170%)',
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  color: '#D85A30',
+                                  whiteSpace: 'nowrap',
+                                  lineHeight: 1,
+                                  zIndex: 3
+                                }}
                               >
                                 {item.milestone_label}
                               </div>
@@ -375,12 +380,14 @@ function GanttChart({ planned, acc }) {
         </table>
       </div>
 
-      <div style={{ display:'flex', gap:14, marginTop:8 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#6b7280' }}>
-          <div style={{ width:16, height:9, borderRadius:2, background:'#888780', opacity:.6 }}/> Planlaşdırılan
+      <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <div style={{ width: 16, height: 9, borderRadius: 2, background: '#888780', opacity: 0.6 }} />
+          Planlaşdırılan
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#6b7280' }}>
-          <div style={{ width:9, height:9, background:'#D85A30', transform:'rotate(45deg)', flexShrink:0 }}/> Milestone
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <div style={{ width: 9, height: 9, background: '#D85A30', transform: 'rotate(45deg)', flexShrink: 0 }} />
+          Milestone
         </div>
       </div>
     </div>
