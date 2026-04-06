@@ -159,25 +159,28 @@ function toggleSnap() {
 <div
   id="platforms"
   ref={platRef}
+  onScroll={e=>{
+    const slides = e.target.querySelectorAll('.pslide')
+    slides.forEach((s,i)=>{
+      const r = s.getBoundingClientRect()
+      if (r.top >= -50 && r.top < window.innerHeight / 2) setCurrentSlide(i)
+    })
+  }}
   style={{
     position: 'relative',
     padding: '24px 6vw 56px'
   }}
 >
-          onScroll={e=>{
-            const slides=e.target.querySelectorAll('.pslide')
-            slides.forEach((s,i)=>{ const r=s.getBoundingClientRect(); if(r.top>=-50&&r.top<window.innerHeight/2) setCurrentSlide(i) })
-          }}>
-          {platforms.map((p,idx)=>(
+  {platforms.map((p,idx)=>(
     <PlatformSlide
-  key={p.id}
-  p={p}
-  idx={idx}
-  total={platforms.length}
-  goToSlide={goToSlide}
-/>
-          ))}
-        </div>
+      key={p.id}
+      p={p}
+      idx={idx}
+      total={platforms.length}
+      goToSlide={goToSlide}
+    />
+  ))}
+</div>
 
         <footer style={{ background:'linear-gradient(135deg,#0f0c29,#1e1b4b)',color:'rgba(255,255,255,.6)',padding:'40px 6vw',display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:2 }}>
           <div style={{ fontSize:14,fontWeight:700,color:'rgba(255,255,255,0.5)' }}>IRIA</div>
@@ -421,6 +424,10 @@ useEffect(() => {
   const el = cardRef.current
   if (!el) return
 
+ useEffect(() => {
+  const el = cardRef.current
+  if (!el) return
+
   const observer = new IntersectionObserver(
     ([entry]) => {
       if (entry.isIntersecting) {
@@ -436,25 +443,7 @@ useEffect(() => {
   return () => observer.disconnect()
 }, [])
 
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      if (entry.isIntersecting) {
-        setVisible(true)
-        observer.disconnect()
-      }
-    },
-    { threshold: 0.12 }
-  )
-
-  observer.observe(el)
-  return () => observer.disconnect()
-}, [])
-
-
-
-
-
-  
+   
   return (
     <>
 <div
