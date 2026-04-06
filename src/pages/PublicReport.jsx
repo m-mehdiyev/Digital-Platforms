@@ -310,48 +310,52 @@ function GanttChart({ planned, acc }) {
                           }}
                         />
 
-                        {inRange && (
-                          <div
-                            style={{
-                              position:'absolute',
-                              left:1,
-                              right:1,
-                              top:20,
-                              height:10,
-                              borderRadius:2,
-                              background:'#888780',
-                              opacity:.6
-                            }}
-                          />
-                        )}
+                     {inRange && (
+  <div
+    style={{
+      position:'absolute',
+      left:1,
+      right:1,
+      top:'50%',
+      height:10,
+      borderRadius:2,
+      background:'#888780',
+      opacity:.6,
+      transform:'translateY(-50%)'
+    }}
+  />
+)}
 
-                        {isMsEnd && (
-                          <>
-                           <div
+            <div
   style={{
     position:'absolute',
     right:-5,
     top:'50%',
-    transform:'translateY(-50%) rotate(45deg)',
     width:9,
     height:9,
     background:'#D85A30',
+    transform:'translateY(-50%) rotate(45deg)',
     zIndex:3
   }}
 />
-                            {item.milestone_label && (
-                              <div
-                                style={{
-                                  position:'absolute',
-                                  right:-10,
-                                  top:5,
-                                  fontSize:10,
-                                  fontWeight:600,
-                                  color:'#D85A30',
-                                  whiteSpace:'nowrap',
-                                  lineHeight:1,
-                                  zIndex:3
-                                }}
+                           {item.milestone_label && (
+  <div
+    style={{
+      position:'absolute',
+      right:-10,
+      top:'50%',
+      transform:'translate(-10%, -170%)',
+      fontSize:10,
+      fontWeight:600,
+      color:'#D85A30',
+      whiteSpace:'nowrap',
+      lineHeight:1,
+      zIndex:3
+    }}
+  >
+    {item.milestone_label}
+  </div>
+)}
                               >
                                 {item.milestone_label}
                               </div>
