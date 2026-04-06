@@ -1,229 +1,521 @@
-/* ── RESET ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; font-size: 15px; }
-body { font-family: Arial, Helvetica, sans-serif; background: #f0f4ff; color: #1a1f36; overflow-x: hidden; line-height: 1.6; }
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #f0f4ff; }
-::-webkit-scrollbar-thumb { background: #a5b4fc; border-radius: 2px; }
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 
-/* ── GLASS CARD ── */
-.glass-card {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1.5px solid rgba(255,255,255,0.9);
-  border-radius: 20px;
-  box-shadow: 0 4px 32px rgba(60,60,120,0.09), inset 0 1px 0 rgba(255,255,255,.55);
-  position: relative;
-  overflow: hidden;
+
+export default function PublicReport() {
+  const [reports, setReports]           = useState([])
+  const [report, setReport]             = useState(null)
+  const [loading, setLoading]           = useState(true)
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [snapOn, setSnapOn]             = useState(true)
+  const [showPicker, setShowPicker]     = useState(false)
+  const platRef = useRef(null)
+
+  useEffect(() => { fetchReports() }, [])
+
+  async function fetchReports() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('published_reports')
+      .select('*')
+      .order('published_at', { ascending: false })
+    setReports(data || [])
+    if (data?.[0]) setReport(data[0])
+    setLoading(false)
+  }
+
+  if (loading) return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16 }}>
+      <div className="spinner" /><p style={{ fontSize:15,color:'#6b7280' }}>Hesabat yüklənir...</p>
+    </div>
+  )
+
+  if (!report) return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,textAlign:'center',padding:40 }}>
+      <div style={{ fontSize:48 }}>📊</div>
+      <h2 style={{ fontSize:24,fontWeight:700,color:'#0f172a' }}>Hesabat mövcud deyil</h2>
+      <p style={{ color:'#6b7280',fontSize:15 }}>Admin tərəfindən hələ heç bir hesabat yayımlanmayıb.</p>
+    </div>
+  )
+
+  const rd = report.report_data
+  const platforms = rd?.platforms || []
+  const period = rd?.period || report.period_label
+
+  function goToSlide(idx) {
+    setCurrentSlide(idx)
+    const cont = platRef.current
+    if (!cont) return
+    const slides = cont.querySelectorAll('.pslide')
+    if (slides[idx]) cont.scrollTo({ top: slides[idx].offsetTop, behavior: 'smooth' })
+  }
+
+  function toggleSnap() {
+    setSnapOn(prev => {
+      const next = !prev
+      if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y mandatory' : 'none'
+      return next
+    })
+  }
+
+  function switchReport(r) {
+    setReport(r)
+    setCurrentSlide(0)
+    setShowPicker(false)
+  }
+
+  return (
+    <div style={{ position:'relative',minHeight:'100vh' }}>
+      <div className="orbs"><div className="orb o1"/><div className="orb o2"/><div className="orb o3"/></div>
+      <CursorGlow />
+      <ProgressBar />
+      <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} className="pub-sidebar"/>
+
+      <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
+        <div style={{ fontSize:15,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
+        <div style={{ display:'flex',alignItems:'center',gap:10 }}>
+          <button onClick={toggleSnap} style={{ display:'flex',alignItems:'center',gap:6,background:snapOn?'rgba(99,102,241,0.08)':'rgba(0,0,0,0.04)',border:`1.5px solid ${snapOn?'rgba(99,102,241,0.2)':'#e5e7eb'}`,borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:snapOn?'#6366f1':'#9ca3af',cursor:'pointer',transition:'all .22s' }}>
+            <span style={{ width:8,height:8,borderRadius:'50%',background:snapOn?'#6366f1':'#d1d5db',flexShrink:0 }}/>
+            Snap: {snapOn?'ON':'OFF'}
+          </button>
+
+          {/* Dövr seçici */}
+          <div style={{ position:'relative' }}>
+            <button onClick={() => setShowPicker(v=>!v)}
+              style={{ display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:700,background:'rgba(99,102,241,0.1)',color:'#6366f1',padding:'5px 14px',borderRadius:100,border:'1.5px solid rgba(99,102,241,0.2)',cursor:'pointer' }}>
+              📅 {period} <span style={{ fontSize:10,opacity:.7 }}>▾</span>
+            </button>
+            {showPicker && (
+              <div style={{ position:'absolute',top:'calc(100% + 8px)',right:0,background:'#fff',borderRadius:14,boxShadow:'0 8px 32px rgba(0,0,0,.15)',border:'1.5px solid rgba(99,102,241,.1)',minWidth:220,zIndex:100,overflow:'hidden' }}>
+                {reports.map(r => (
+                  <button key={r.id} onClick={() => switchReport(r)}
+                    style={{ display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'11px 16px',fontSize:13,fontWeight:600,color:r.id===report.id?'#6366f1':'#374151',background:r.id===report.id?'rgba(99,102,241,0.06)':'transparent',border:'none',cursor:'pointer',textAlign:'left',borderBottom:'1px solid #f1f3f9' }}>
+                    <span>{r.period_label}</span>
+                    {r.id===report.id && <span>✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {showPicker && <div style={{ position:'fixed',inset:0,zIndex:99 }} onClick={()=>setShowPicker(false)}/>}
+
+          <span style={{ fontSize:12,color:'#9ca3af' }}>{new Date(report.published_at).toLocaleDateString('az')}</span>
+        </div>
+      </nav>
+
+      <div className="pub-content" style={{ marginLeft:72,position:'relative',zIndex:2 }}>
+
+        {/* HERO */}
+        <section style={{ minHeight:'100vh',display:'flex',flexDirection:'column',justifyContent:'center',padding:'100px 6vw 60px',background:'linear-gradient(160deg,#0f0c29 0%,#302b63 50%,#24243e 100%)',overflow:'hidden',position:'relative' }}>
+          <div style={{ position:'absolute',inset:0,pointerEvents:'none' }}>
+            <div style={{ position:'absolute',width:700,height:700,borderRadius:'50%',filter:'blur(80px)',background:'rgba(99,102,241,.35)',top:-200,right:-150,animation:'orbDrift 12s ease-in-out infinite alternate' }}/>
+            <div style={{ position:'absolute',width:500,height:500,borderRadius:'50%',filter:'blur(80px)',background:'rgba(139,92,246,.25)',bottom:-100,left:-80,animation:'orbDrift 12s ease-in-out infinite alternate',animationDelay:'-5s' }}/>
+          </div>
+          <div style={{ position:'relative',zIndex:2 }}>
+            <div>
+              <div style={{ display:'inline-flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,letterSpacing:'.15em',textTransform:'uppercase',color:'rgba(196,181,253,.9)',marginBottom:28 }}>
+                <span style={{ width:7,height:7,borderRadius:'50%',background:'#a78bfa',animation:'ep 2s infinite',display:'inline-block' }}/>{period}
+              </div>
+            <h1 style={{ fontSize:'clamp(52px,7vw,96px)',fontWeight:700,lineHeight:1,color:'#fff',letterSpacing:'-.025em',marginBottom:16 }}>
+              Rəqəmsal<br/>
+              <span style={{ background:'linear-gradient(135deg,#c4b5fd,#a78bfa,#818cf8)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text' }}>Platformalar</span>
+            </h1>
+            <p style={{ fontSize:16,color:'rgba(196,181,253,.75)',maxWidth:560,lineHeight:1.7,marginBottom:52 }}>
+              Rəqəmsal Platformaların İdarəolunması Şöbəsi<br/>Hesabat dövrü: {period}
+            </p>
+            <div style={{ display:'flex',gap:14,flexWrap:'wrap' }}>
+              {[{n:platforms.length,l:'Platforma'},{n:platforms.reduce((s,p)=>s+(p.done?.length||0),0),l:'Görülən İş'},{n:'I Rüb',l:'2026'},{n:platforms.filter(p=>p.screenshots?.length>0).length,l:'Ekran Görüntüsü'}].map((k,i)=>(
+                <div key={i} style={{ background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.12)',backdropFilter:'blur(16px)',borderRadius:18,padding:'20px 26px',minWidth:120,position:'relative',overflow:'hidden' }}>
+                  <div style={{ position:'absolute',top:0,left:0,right:0,height:1,background:'linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent)' }}/>
+                  <div style={{ fontSize:36,fontWeight:700,color:'#fff',lineHeight:1,marginBottom:4 }}>{k.n}</div>
+                  <div style={{ fontSize:11,color:'rgba(196,181,253,.7)' }}>{k.l}</div>
+                </div>
+              ))}
+            </div>
+            </div>{/* sol mətn bağlandı */}
+
+          </div>{/* flex wrapper bağlandı */}
+          <div style={{ position:'absolute',bottom:32,left:'50%',transform:'translateX(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer',animation:'sh 2.5s infinite' }}
+            onClick={()=>document.getElementById('overview')?.scrollIntoView({behavior:'smooth'})}>
+            <div style={{ width:44,height:44,borderRadius:'50%',border:'1.5px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.06)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'rgba(255,255,255,.5)' }}>↓</div>
+            <span style={{ fontSize:9,letterSpacing:'.15em',textTransform:'uppercase',color:'rgba(255,255,255,.25)' }}>Aşağı</span>
+          </div>
+        </section>
+
+        {/* OVERVIEW — böyüdülmüş cardlar */}
+        <section id="overview" style={{ background:'linear-gradient(160deg,#f5f6ff,#eef0ff)',padding:'72px 6vw' }}>
+          <div style={{ fontSize:11,fontWeight:700,letterSpacing:'.15em',textTransform:'uppercase',color:'#6366f1',marginBottom:10 }}>— Platforma Ekosistemi</div>
+          <h2 style={{ fontSize:'clamp(26px,3.5vw,42px)',fontWeight:700,color:'#0f172a',letterSpacing:'-.02em',marginBottom:8 }}>Bütün Platformalar</h2>
+          <p style={{ fontSize:14,color:'#6b7280',marginBottom:36 }}>Platforma üzərinə klik edərək ətraflı hesabata keçin</p>
+
+          <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(210px,1fr))',gap:16 }}>
+            {platforms.map((p,idx)=>(
+              <OvCard key={p.id} p={p} idx={idx} goToSlide={goToSlide} />
+            ))}
+          </div>
+        </section>
+
+        {/* PLATFORM SNAP VIEWER */}
+        <div id="platforms" ref={platRef}
+          style={{ height:'calc(100vh - 67px)',overflowY:'scroll',scrollSnapType:'y mandatory',position:'relative' }}
+          onScroll={e=>{
+            const slides=e.target.querySelectorAll('.pslide')
+            slides.forEach((s,i)=>{ const r=s.getBoundingClientRect(); if(r.top>=-50&&r.top<window.innerHeight/2) setCurrentSlide(i) })
+          }}>
+          {platforms.map((p,idx)=>(
+            <PlatformSlide key={p.id} p={p} idx={idx} total={platforms.length} goToSlide={goToSlide} currentSlide={currentSlide} />
+          ))}
+        </div>
+
+        <footer style={{ background:'linear-gradient(135deg,#0f0c29,#1e1b4b)',color:'rgba(255,255,255,.6)',padding:'40px 6vw',display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:2 }}>
+          <div style={{ fontSize:14,fontWeight:700,color:'rgba(255,255,255,0.5)' }}>IRIA</div>
+          <div style={{ fontSize:12,textAlign:'right',lineHeight:1.6 }}>Rəqəmsal Platformalar · {period}<br/>Rəqəmsal Platformaların İdarəolunması Şöbəsi</div>
+        </footer>
+      </div>
+
+      <style>{`
+        @keyframes orbDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(35px,50px) scale(1.1)}}
+        @keyframes ep{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+        @keyframes sh{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
+        @keyframes lbIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+        @keyframes imgIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+
+        /* ── MOBILE ── */
+        @media (max-width: 640px) {
+          /* Sidebar gizlə */
+          .pub-sidebar { display: none !important; }
+          /* Content tam genişlik */
+          .pub-content { margin-left: 0 !important; }
+          /* Nav sol mənfəz sıfırla */
+          .pub-nav { left: 0 !important; }
+          /* pslide padding azalt */
+          .pslide { padding: 12px 14px 36px !important; }
+          /* Mətn + şəkil sütunları alt-alta */
+          .mobile-col { flex-direction: column !important; }
+          /* İki sütunlu grid → bir sütun */
+          .mobile-grid-1 { grid-template-columns: 1fr !important; }
+          /* Stats 4 sütun → 2 sütun */
+          .mobile-stats { grid-template-columns: repeat(2,1fr) !important; }
+        }
+      `}</style>
+    </div>
+  )
 }
-.glass-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,.16) 0%, transparent 60%);
-  pointer-events: none;
-  border-radius: inherit;
+
+/* Overview card — hover ile büyük efekt */
+function OvCard({ p, idx, goToSlide }) {
+  const acc = p.color || '#6366f1'
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={()=>{ document.getElementById('platforms')?.scrollIntoView({behavior:'smooth',block:'start'}); setTimeout(()=>goToSlide(idx),350) }}
+      onMouseEnter={()=>setHov(true)}
+      onMouseLeave={()=>setHov(false)}
+      className="glass-card"
+      style={{ padding:'28px 22px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'flex-start',gap:14,border:'1.5px solid rgba(255,255,255,0.9)',borderTop:`4px solid ${acc}`,background:'none',width:'100%',textAlign:'left',transition:'all .32s cubic-bezier(.23,1,.32,1)',transform:hov?'translateY(-6px) scale(1.02)':'none',boxShadow:hov?`0 20px 48px ${acc}22`:'none' }}>
+      <div style={{ height:48,display:'flex',alignItems:'center' }}>
+        {p.logo_url
+          ? <img src={p.logo_url} alt={p.name} style={{ maxHeight:48,maxWidth:160,objectFit:'contain',objectPosition:'left' }}/>
+          : <b style={{ fontSize:16,color:acc }}>{p.name}</b>}
+      </div>
+      <div style={{ fontSize:13,color:'#6b7280',lineHeight:1.5 }}>{p.tagline}</div>
+      <div style={{ fontSize:11,fontWeight:700,padding:'5px 14px',borderRadius:100,background:acc,color:'#fff',marginTop:'auto',letterSpacing:'.02em' }}>
+        {p.done?.length||0} iş tamamlandı{p.screenshots?.length?' 📷':''}
+      </div>
+    </button>
+  )
 }
 
-/* ── ORBS ── */
-.orbs { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.orb { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .2; animation: orbDrift 14s ease-in-out infinite alternate; }
-.o1 { width: 700px; height: 700px; background: radial-gradient(circle, #6366f1, transparent 70%); top: -200px; right: -150px; }
-.o2 { width: 550px; height: 550px; background: radial-gradient(circle, #8b5cf6, transparent 70%); bottom: -150px; left: -100px; animation-delay: -5s; }
-.o3 { width: 380px; height: 380px; background: radial-gradient(circle, #06b6d4, transparent 70%); top: 45%; left: 40%; animation-delay: -9s; opacity: .1; }
-@keyframes orbDrift { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(35px,50px) scale(1.1); } }
+/* Platform slide */
+const MONTHS_AZ = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt','Noy','Dek']
 
-/* ── ADMIN LAYOUT ── */
-.admin-layout { display: flex; min-height: 100vh; position: relative; z-index: 2; }
-
-.admin-sidebar {
-  width: 240px;
-  flex-shrink: 0;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(24px) saturate(200%);
-  border-right: 1px solid rgba(99,102,241,0.1);
-  box-shadow: 2px 0 20px rgba(60,60,120,0.07);
-  display: flex;
-  flex-direction: column;
-  padding: 24px 0;
-  position: sticky;
-  top: 0;
-  height: 100vh;
+function GanttChart({ planned, acc }) {
+  const items = planned?.filter(i => i && typeof i === 'object' && i.start_month) || []
+  if (!items.length) return null
+  return (
+    <div className="glass-card" style={{ padding:'14px 18px', marginTop:0 }}>
+      <div style={{ fontSize:12,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:acc,marginBottom:12 }}>📅 İş Planı</div>
+      <div style={{ overflowX:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:500 }}>
+          <thead>
+            <tr>
+              <th style={{ width:140, minWidth:100 }}></th>
+              {MONTHS_AZ.map((m,i)=>(
+                <th key={i} style={{ fontSize:9,color:'#9ca3af',fontWeight:500,textAlign:'center',paddingBottom:4,minWidth:28 }}>{m}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item,ri)=>{
+              const s = parseInt(item.start_month)-1
+              const e = parseInt(item.end_month||item.start_month)-1
+              return (
+                <tr key={ri}>
+                  <td style={{ fontSize:11,color:'#374151',paddingRight:6,paddingBottom:2,maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                    {item.text}
+                  </td>
+                  {MONTHS_AZ.map((_,mi)=>{
+                    const inRange = mi>=s && mi<=e
+                    const isMsEnd = item.is_milestone && mi===e
+                    return (
+                      <td key={mi} style={{ padding:'1px',height:20,position:'relative' }}>
+                        <div style={{ borderRight:'1px solid rgba(0,0,0,.05)',height:'100%',position:'absolute',right:0,top:0 }}/>
+                        {inRange && !isMsEnd && (
+                          <div style={{ height:13,borderRadius:2,background:'#888780',opacity:.6,margin:'3px 1px' }}/>
+                        )}
+                        {isMsEnd && (
+                          <div title={item.milestone_label||'Milestone'} style={{ width:9,height:9,background:'#D85A30',transform:'rotate(45deg)',margin:'5px auto',cursor:'default' }}/>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display:'flex',gap:14,marginTop:8 }}>
+        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#6b7280' }}>
+          <div style={{ width:16,height:9,borderRadius:2,background:'#888780',opacity:.6 }}/> Planlaşdırılan
+        </div>
+        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#6b7280' }}>
+          <div style={{ width:9,height:9,background:'#D85A30',transform:'rotate(45deg)',flexShrink:0 }}/> Milestone
+        </div>
+      </div>
+    </div>
+  )
 }
 
-.admin-logo {
-  padding: 0 20px 24px;
-  border-bottom: 1px solid rgba(99,102,241,0.08);
-  margin-bottom: 16px;
+function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
+  const [lightbox, setLightbox] = useState(null)
+  const done = p.done||[]
+  const rawPlanned = p.planned || [...(p.plan_month||[]), ...(p.plan_quarter||[]), ...(p.plan_year||[])]
+  const plannedObjects = rawPlanned.map(i => typeof i === 'string' ? { text: i } : i)
+  const plannedTexts = plannedObjects.map(i => i.text||i)
+  const hasGantt = plannedObjects.some(i => i.start_month)
+  const stats = p.stats||[], screenshots = p.screenshots||[]
+  const acc = p.color||'#6366f1'
+
+  const dots = Array.from({length:total},(_,i)=>(
+    <button key={i} onClick={()=>goToSlide(i)}
+      style={{ width:i===currentSlide?20:6,height:6,borderRadius:i===currentSlide?3:'50%',background:i===currentSlide?'#6366f1':'#d1d5db',border:'none',cursor:'pointer',transition:'all .25s',padding:0,flexShrink:0 }}/>
+  ))
+
+  return (
+    <>
+      <div className="pslide" id={p.id} data-idx={idx}
+        style={{ minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 4vw 44px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflowY:'auto' }}>
+        <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.06,pointerEvents:'none' }}/>
+
+        <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:11 }}>
+          {/* Header */}
+          <div style={{ display:'flex',alignItems:'center',gap:16 }}>
+            <div style={{ height:42,display:'flex',alignItems:'center' }}>
+              {p.logo_url ? <img src={p.logo_url} alt={p.name} style={{ maxHeight:42,maxWidth:200,objectFit:'contain',objectPosition:'left' }}/> : <span style={{ fontSize:20,fontWeight:700,color:acc }}>{p.name}</span>}
+            </div>
+            <span style={{ fontSize:12,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',padding:'5px 14px',borderRadius:100,background:acc+'18',color:acc }}>{p.tagline}</span>
+          </div>
+
+          {/* Stats */}
+          {stats.length>0&&(
+            <div className="mobile-stats" style={{ display:'grid',gridTemplateColumns:`repeat(${Math.min(stats.length,4)},1fr)`,gap:9 }}>
+              {stats.map((s,i)=>(
+                <div key={i} style={{ background:'rgba(255,255,255,.8)',border:'1.5px solid rgba(255,255,255,.95)',borderRadius:14,padding:'12px 15px',backdropFilter:'blur(8px)',boxShadow:'0 2px 12px rgba(60,60,120,0.07)' }}>
+                  <span style={{ display:'block',fontSize:22,fontWeight:700,color:acc,lineHeight:1,marginBottom:3 }}>{s.v}</span>
+                  <span style={{ display:'block',fontSize:13,color:'#6b7280' }}>{s.l}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Body — mobile: şəkillər aşağıya düşür */}
+          <div className="mobile-col" style={{ display:'flex', gap:12, alignItems:'flex-start', flexWrap:'wrap' }}>
+            {/* Mətn sütunları — daha geniş */}
+            <div className="mobile-grid-1" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:11, flex:'1 1 500px', minWidth:0 }}>
+              <div className="glass-card" style={{ padding:'14px 18px', borderTop:`3px solid ${acc}` }}>
+                <div style={{ fontSize:12,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:acc,marginBottom:11 }}>✓ Görülən İşlər</div>
+                <ul style={{ listStyle:'none' }}>
+                  {done.length ? done.map((d,i)=>(
+                    <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:15,color:'#374151',lineHeight:1.6,padding:'6px 0',borderBottom:i<done.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
+                      <i style={{ fontStyle:'normal',fontSize:11,fontWeight:700,color:'#16a34a',flexShrink:0,marginTop:1 }}>✓</i>{d}
+                    </li>
+                  )) : <li style={{ color:'#9ca3af',fontStyle:'italic',fontSize:14 }}>Məlumat yoxdur</li>}
+                </ul>
+              </div>
+              <div className="glass-card" style={{ padding:'14px 18px' }}>
+                <div style={{ fontSize:13,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',color:'#2563eb',marginBottom:12 }}>› Planlaşdırılan</div>
+                <ul style={{ listStyle:'none' }}>
+                  {plannedTexts.length ? plannedTexts.map((t,i)=>(
+                    <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:15,color:'#374151',lineHeight:1.6,padding:'6px 0',borderBottom:i<plannedTexts.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
+                      <i style={{ fontStyle:'normal',fontSize:13,color:'#2563eb',flexShrink:0,lineHeight:1 }}>›</i>{t}
+                    </li>
+                  )) : <li style={{ color:'#9ca3af',fontStyle:'italic',fontSize:14 }}>Məlumat yoxdur</li>}
+                </ul>
+              </div>
+            </div>
+
+            {/* Screenshots — daha dar, mətnə yer açır */}
+            {screenshots.length>0&&(
+              <div style={{ flex:'0 0 200px', minWidth:0 }}>
+                <div style={{ fontSize:13,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',color:acc,marginBottom:10 }}>📷 Ekran Görüntüləri</div>
+                {screenshots.length===1 ? (
+                  <div onClick={()=>setLightbox(0)}
+                    style={{ borderRadius:14,overflow:'hidden',cursor:'zoom-in',boxShadow:'0 4px 20px rgba(0,0,0,.12)',border:'1.5px solid rgba(255,255,255,.8)' }}>
+                    <img src={screenshots[0]} alt="" style={{ width:'100%',height:'auto',display:'block',transition:'transform .3s' }}
+                      onMouseEnter={e=>e.currentTarget.style.transform='scale(1.03)'}
+                      onMouseLeave={e=>e.currentTarget.style.transform='none'}/>
+                  </div>
+                ) : (
+                  <div style={{ display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8 }}>
+                    {screenshots.map((ss,i)=>(
+                      <SSThumb key={i} src={ss} acc={acc} onClick={()=>setLightbox(i)} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {hasGantt && <GanttChart planned={plannedObjects} acc={acc}/>}
+
+          {p.issue&&(
+            <div style={{ display:'flex',gap:8,alignItems:'flex-start',background:'#fffbeb',border:'1px solid rgba(245,158,11,.25)',borderRadius:10,padding:'9px 13px',fontSize:11,color:'#92400e' }}>
+              <span>⚠️</span><span>{p.issue}</span>
+            </div>
+          )}
+        </div>
+
+        <div style={{ position:'absolute',bottom:12,left:'50%',transform:'translateX(-50%)',display:'flex',gap:5,alignItems:'center' }}>
+          {dots}
+        </div>
+      </div>
+
+      {lightbox!==null&&(
+        <Lightbox images={screenshots} index={lightbox} onClose={()=>setLightbox(null)} accentColor={acc} />
+      )}
+    </>
+  )
 }
-.admin-logo img { height: 32px; object-fit: contain; }
-.admin-logo .logo-sub { font-size: 11px; color: #6b7280; margin-top: 6px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 
-.admin-nav { flex: 1; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
-.admin-nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: 12px;
-  font-size: 14px; font-weight: 600; color: #6b7280;
-  cursor: pointer; transition: all .2s; text-decoration: none;
-  border: none; background: none; width: 100%; text-align: left;
+/* Screenshot thumbnail */
+function SSThumb({ src, acc, onClick }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <div onClick={onClick}
+      onMouseEnter={()=>setHov(true)}
+      onMouseLeave={()=>setHov(false)}
+      style={{ borderRadius:10,overflow:'hidden',cursor:'zoom-in',boxShadow:hov?`0 6px 20px ${acc}35`:'0 2px 12px rgba(0,0,0,.1)',border:`1.5px solid ${hov?acc:'rgba(255,255,255,.8)'}`,aspectRatio:'16/10',position:'relative',transition:'all .22s' }}>
+      <img src={src} alt="" style={{ width:'100%',height:'100%',objectFit:'cover',display:'block',transition:'transform .3s',transform:hov?'scale(1.05)':'none' }}/>
+      {hov&&<div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22 }}>🔍</div>}
+    </div>
+  )
 }
-.admin-nav-item:hover { background: rgba(99,102,241,0.08); color: #6366f1; }
-.admin-nav-item.active { background: rgba(99,102,241,0.12); color: #6366f1; }
-.admin-nav-item svg { flex-shrink: 0; }
 
-.admin-nav-section { font-size: 10px; font-weight: 700; color: #d1d5db; letter-spacing: .12em; text-transform: uppercase; padding: 16px 12px 4px; }
+/* Lightbox */
+function Lightbox({ images, index, onClose, accentColor }) {
+  const [current, setCurrent] = useState(index)
+  const acc = accentColor||'#6366f1'
 
-.admin-role-badge {
-  margin: 16px 12px 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 700;
+  const prev = useCallback(()=>setCurrent(c=>(c-1+images.length)%images.length),[images.length])
+  const next = useCallback(()=>setCurrent(c=>(c+1)%images.length),[images.length])
+
+  useEffect(()=>{
+    const fn = e=>{ if(e.key==='Escape')onClose(); if(e.key==='ArrowLeft')prev(); if(e.key==='ArrowRight')next() }
+    window.addEventListener('keydown',fn)
+    document.body.style.overflow='hidden'
+    return ()=>{ window.removeEventListener('keydown',fn); document.body.style.overflow='' }
+  },[onClose,prev,next])
+
+  return (
+    <div onClick={e=>e.target===e.currentTarget&&onClose()}
+      style={{ position:'fixed',inset:0,zIndex:9999,background:'rgba(10,10,20,0.93)',backdropFilter:'blur(14px)',display:'flex',alignItems:'center',justifyContent:'center',padding:24,animation:'lbIn .22s ease' }}>
+
+      {/* Close */}
+      <button onClick={onClose}
+        style={{ position:'absolute',top:20,right:20,width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.2)',color:'#fff',fontSize:20,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,transition:'background .2s' }}
+        onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.22)'}
+        onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.1)'}>✕</button>
+
+      {/* Counter */}
+      {images.length>1&&(
+        <div style={{ position:'absolute',top:24,left:'50%',transform:'translateX(-50%)',fontSize:13,color:'rgba(255,255,255,.5)',fontWeight:600,letterSpacing:'.05em' }}>
+          {current+1} / {images.length}
+        </div>
+      )}
+
+      {/* Prev */}
+      {images.length>1&&(
+        <button onClick={prev}
+          style={{ position:'absolute',left:20,width:52,height:52,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.2)',color:'#fff',fontSize:26,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s' }}
+          onMouseEnter={e=>{e.currentTarget.style.background=acc;e.currentTarget.style.borderColor=acc}}
+          onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';e.currentTarget.style.borderColor='rgba(255,255,255,0.2)'}}>‹</button>
+      )}
+
+      {/* Main image */}
+      <img key={current} src={images[current]} alt=""
+        style={{ maxWidth:'85vw',maxHeight:'80vh',objectFit:'contain',borderRadius:16,boxShadow:'0 32px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06)',display:'block',animation:'imgIn .2s ease' }}/>
+
+      {/* Next */}
+      {images.length>1&&(
+        <button onClick={next}
+          style={{ position:'absolute',right:20,width:52,height:52,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.2)',color:'#fff',fontSize:26,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s' }}
+          onMouseEnter={e=>{e.currentTarget.style.background=acc;e.currentTarget.style.borderColor=acc}}
+          onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';e.currentTarget.style.borderColor='rgba(255,255,255,0.2)'}}>›</button>
+      )}
+
+      {/* Thumbnail strip */}
+      {images.length>1&&(
+        <div style={{ position:'absolute',bottom:20,left:'50%',transform:'translateX(-50%)',display:'flex',gap:8,alignItems:'center' }}>
+          {images.map((img,i)=>(
+            <div key={i} onClick={()=>setCurrent(i)}
+              style={{ width:i===current?76:58,height:i===current?48:38,borderRadius:8,overflow:'hidden',cursor:'pointer',border:`2px solid ${i===current?acc:'rgba(255,255,255,.25)'}`,opacity:i===current?1:0.55,transition:'all .22s',flexShrink:0 }}>
+              <img src={img} alt="" style={{ width:'100%',height:'100%',objectFit:'cover' }}/>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
-.admin-role-badge.super { background: rgba(99,102,241,0.1); color: #6366f1; }
-.admin-role-badge.platform { background: rgba(16,185,129,0.1); color: #059669; }
 
-.admin-main { flex: 1; padding: 32px; min-width: 0; }
-
-.admin-topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 28px;
+/* Sidebar */
+function Sidebar({ platforms, currentSlide, goToSlide }) {
+  return (
+    <div className="pub-sidebar" style={{ position:'fixed',left:0,top:3,bottom:0,width:72,zIndex:700,background:'rgba(255,255,255,0.85)',backdropFilter:'blur(24px) saturate(200%)',borderRight:'1px solid rgba(99,102,241,0.1)',boxShadow:'2px 0 20px rgba(60,60,120,0.07)',display:'flex',flexDirection:'column',alignItems:'center',padding:'72px 0 12px',gap:3,overflow:'visible' }}>
+      {platforms.map((p,idx)=>{
+        const isActive=currentSlide===idx; const acc=p.color||'#6366f1'
+        return (
+          <div key={p.id} title={p.name}
+            onClick={()=>{ document.getElementById('platforms')?.scrollIntoView({behavior:'smooth',block:'start'}); setTimeout(()=>goToSlide(idx),300) }}
+            style={{ width:52,height:52,borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',transition:'background .22s,transform .22s,box-shadow .22s',background:isActive?acc:'transparent',transform:isActive?'translateX(2px)':'none',boxShadow:isActive?`0 4px 20px ${acc}70`:'none',flexShrink:0 }}>
+            {p.logo_url
+              ? <img src={p.logo_url} alt="" style={{ maxWidth:30,maxHeight:26,objectFit:'contain',filter:isActive?'brightness(0) invert(1)':'none',transition:'filter .2s' }}/>
+              : <span style={{ fontSize:7,fontWeight:700,color:isActive?'#fff':'#374151',textAlign:'center',lineHeight:1.2 }}>{p.name?.slice(0,6)}</span>}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
-.admin-page-title { font-size: 22px; font-weight: 700; color: #0f172a; }
-.admin-page-sub { font-size: 14px; color: #6b7280; margin-top: 2px; }
 
-/* ── BUTTONS ── */
-.btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 9px 18px; border-radius: 10px;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  border: none; transition: all .2s; font-family: Arial, sans-serif;
+function CursorGlow() {
+  useEffect(()=>{
+    const el=document.getElementById('pub-cg'); if(!el) return
+    let mx=window.innerWidth/2,my=window.innerHeight/2,cx=mx,cy=my
+    const move=e=>{mx=e.clientX;my=e.clientY}
+    document.addEventListener('mousemove',move)
+    let raf; const anim=()=>{cx+=(mx-cx)*.10;cy+=(my-cy)*.10;el.style.left=cx+'px';el.style.top=cy+'px';raf=requestAnimationFrame(anim)}
+    anim(); return()=>{document.removeEventListener('mousemove',move);cancelAnimationFrame(raf)}
+  },[])
+  return <div id="pub-cg" style={{ position:'fixed',top:0,left:0,width:480,height:480,borderRadius:'50%',pointerEvents:'none',zIndex:9998,transform:'translate(-50%,-50%)',background:'radial-gradient(circle at center,rgba(99,102,241,0.18) 0%,rgba(139,92,246,0.10) 25%,rgba(99,102,241,0.04) 55%,transparent 72%)',willChange:'left,top' }}/>
 }
-.btn-primary { background: #6366f1; color: #fff; }
-.btn-primary:hover { background: #4f46e5; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,.3); }
-.btn-secondary { background: rgba(99,102,241,0.08); color: #6366f1; border: 1.5px solid rgba(99,102,241,.2); }
-.btn-secondary:hover { background: rgba(99,102,241,0.14); }
-.btn-danger { background: rgba(239,68,68,0.08); color: #dc2626; border: 1.5px solid rgba(239,68,68,.2); }
-.btn-danger:hover { background: rgba(239,68,68,0.14); }
-.btn-success { background: #059669; color: #fff; }
-.btn-success:hover { background: #047857; }
-.btn-sm { padding: 6px 12px; font-size: 14px; border-radius: 8px; }
 
-/* ── FORM ELEMENTS ── */
-.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-.form-label { font-size: 14px; font-weight: 700; color: #374151; letter-spacing: .04em; text-transform: uppercase; }
-.form-input, .form-select, .form-textarea {
-  padding: 10px 14px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 10px;
-  font-size: 14px;
-  font-family: Arial, sans-serif;
-  color: #1a1f36;
-  background: rgba(255,255,255,0.8);
-  transition: border-color .2s, box-shadow .2s;
-  outline: none;
+function ProgressBar() {
+  useEffect(()=>{
+    const el=document.getElementById('pub-prog'); if(!el) return
+    const upd=()=>{const p=window.scrollY/(document.body.scrollHeight-window.innerHeight)*100;el.style.width=p+'%'}
+    window.addEventListener('scroll',upd,{passive:true}); return()=>window.removeEventListener('scroll',upd)
+  },[])
+  return <div id="pub-prog" style={{ position:'fixed',top:0,left:0,height:3,zIndex:9999,background:'linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4)',width:0,transition:'width .1s' }}/>
 }
-.form-input:focus, .form-select:focus, .form-textarea:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
-}
-.form-textarea { resize: vertical; min-height: 80px; }
-
-/* ── CARDS ── */
-.card {
-  background: rgba(255,255,255,0.8);
-  border: 1.5px solid rgba(255,255,255,0.9);
-  border-radius: 18px;
-  padding: 24px;
-  box-shadow: 0 2px 20px rgba(60,60,120,0.07);
-}
-.card-title { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-
-/* ── STATUS BADGES ── */
-.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; }
-.badge-green { background: rgba(16,185,129,0.1); color: #059669; }
-.badge-yellow { background: rgba(245,158,11,0.1); color: #d97706; }
-.badge-red { background: rgba(239,68,68,0.1); color: #dc2626; }
-.badge-blue { background: rgba(99,102,241,0.1); color: #6366f1; }
-.badge-gray { background: rgba(0,0,0,0.06); color: #6b7280; }
-
-/* ── TABLE ── */
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th { font-size: 11px; font-weight: 700; color: #6b7280; letter-spacing: .08em; text-transform: uppercase; padding: 10px 14px; text-align: left; border-bottom: 1.5px solid #f1f3f9; }
-.data-table td { padding: 12px 14px; font-size: 14px; color: #374151; border-bottom: 1px solid #f8f9ff; }
-.data-table tr:hover td { background: rgba(99,102,241,0.03); }
-
-/* ── LOADING ── */
-.spinner { width: 32px; height: 32px; border: 3px solid rgba(99,102,241,.2); border-top-color: #6366f1; border-radius: 50%; animation: spin .7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 16px; }
-.loading-screen p { font-size: 14px; color: #6b7280; }
-
-/* ── DROPZONE ── */
-.dropzone {
-  border: 2px dashed #c4b5fd;
-  border-radius: 14px;
-  padding: 32px;
-  text-align: center;
-  cursor: pointer;
-  transition: all .2s;
-  background: rgba(99,102,241,0.03);
-}
-.dropzone:hover, .dropzone.active { border-color: #6366f1; background: rgba(99,102,241,0.06); }
-.dropzone p { font-size: 14px; color: #6b7280; margin-top: 8px; }
-
-/* ── LIST ITEMS ── */
-.list-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.06); margin-bottom: 6px; }
-.list-item-text { flex: 1; font-size: 14px; color: #374151; }
-.list-item-actions { display: flex; gap: 4px; }
-
-/* ── KPI BLOCK ── */
-.kpi-input-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 8px; }
-
-/* ── STAT OVERVIEW ── */
-.stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 28px; }
-.stat-box { padding: 20px; border-radius: 16px; background: rgba(255,255,255,0.8); border: 1.5px solid rgba(255,255,255,0.9); box-shadow: 0 2px 16px rgba(60,60,120,0.07); }
-.stat-box-num { font-size: 32px; font-weight: 700; color: #6366f1; line-height: 1; margin-bottom: 4px; }
-.stat-box-label { font-size: 11px; color: #6b7280; }
-
-/* ── PLATFORM GRID ── */
-.platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 16px; }
-.platform-card-admin {
-  padding: 20px; border-radius: 18px;
-  background: rgba(255,255,255,0.8);
-  border: 1.5px solid rgba(255,255,255,0.9);
-  box-shadow: 0 2px 16px rgba(60,60,120,0.07);
-  transition: all .25s;
-}
-.platform-card-admin:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(60,60,120,0.12); }
-.platform-card-logo { height: 36px; margin-bottom: 12px; display: flex; align-items: center; }
-.platform-card-logo img { max-height: 36px; max-width: 140px; object-fit: contain; object-position: left; }
-.platform-card-name { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
-.platform-card-tag { font-size: 11px; color: #6b7280; margin-bottom: 12px; }
-.platform-card-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06); }
-
-/* ── MODAL ── */
-.modal-overlay { position: fixed; inset: 0; background: rgba(15,15,26,0.5); backdrop-filter: blur(6px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.modal { background: #fff; border-radius: 24px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,.2); }
-.modal-header { padding: 24px 28px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f3f9; }
-.modal-title { font-size: 17px; font-weight: 700; color: #0f172a; }
-.modal-close { width: 32px; height: 32px; border-radius: 50%; background: #f4f6fb; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #6b7280; transition: all .2s; }
-.modal-close:hover { background: #e8eaf6; color: #1a1f36; }
-.modal-body { padding: 24px 28px; }
-.modal-footer { padding: 16px 28px 24px; display: flex; gap: 10px; justify-content: flex-end; }
-
-/* ── TOKEN CARD ── */
-.token-card { padding: 16px; border-radius: 14px; border: 1.5px solid rgba(99,102,241,.15); background: rgba(99,102,241,0.04); margin-bottom: 10px; }
-.token-url { font-size: 14px; font-family: monospace; color: #374151; background: rgba(0,0,0,0.04); padding: 8px 12px; border-radius: 8px; word-break: break-all; margin-top: 8px; }
-.token-copy { cursor: pointer; color: #6366f1; font-size: 11px; font-weight: 700; margin-top: 6px; display: inline-block; }
-
-/* ── TOASTS ── */
-.toast-success { background: #059669 !important; }
-.toast-error { background: #dc2626 !important; }
-
-/* ── ACCESS DENIED ── */
-.access-denied { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; text-align: center; padding: 40px; }
-.access-denied h1 { font-size: 28px; font-weight: 700; color: #0f172a; }
-.access-denied p { font-size: 15px; color: #6b7280; max-width: 400px; }
