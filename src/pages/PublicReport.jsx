@@ -327,18 +327,18 @@ function GanttChart({ planned, acc }) {
 
                         {isMsEnd && (
                           <>
-                            <div
-                              style={{
-                                position:'absolute',
-                                right:-5,
-                                top:26,
-                                width:9,
-                                height:9,
-                                background:'#D85A30',
-                                transform:'rotate(45deg)',
-                                zIndex:3
-                              }}
-                            />
+                           <div
+  style={{
+    position:'absolute',
+    right:-5,
+    top:'50%',
+    transform:'translateY(-50%) rotate(45deg)',
+    width:9,
+    height:9,
+    background:'#D85A30',
+    zIndex:3
+  }}
+/>
                             {item.milestone_label && (
                               <div
                                 style={{
