@@ -65,14 +65,13 @@ function toggleSnap() {
   })
 }
 
-  function switchReport(r) {
-    setReport(r)
-    setCurrentSlide(0)
-    setShowPicker(false)
-    
-      }
+function switchReport(r) {
+  setReport(r)
+  setCurrentSlide(0)
+  setShowPicker(false)
+}
 
-  useEffect(() => {
+useEffect(() => {
   function handleScroll() {
     const cont = platRef.current
     if (!cont) return
@@ -91,15 +90,6 @@ function toggleSnap() {
 
   return () => window.removeEventListener('scroll', handleScroll)
 }, [report])
-    })
-  }
-
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  handleScroll()
-
-  return () => window.removeEventListener('scroll', handleScroll)
-}, [report])
-  }
 
   return (
     <div style={{ position:'relative',minHeight:'100vh' }}>
