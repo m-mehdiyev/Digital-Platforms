@@ -232,118 +232,148 @@ const MONTHS_AZ = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt'
 function GanttChart({ planned, acc }) {
   const items = planned?.filter(i => i && typeof i === 'object' && i.start_month) || []
   if (!items.length) return null
+
   return (
     <div className="glass-card" style={{ padding:'14px 18px', marginTop:0 }}>
-      <div style={{ fontSize:12,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:acc,marginBottom:12 }}>📅 İş Planı</div>
+      <div style={{ fontSize:12, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color:acc, marginBottom:12 }}>
+        📅 İş Planı
+      </div>
+
       <div style={{ overflowX:'auto' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:500 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:560 }}>
           <thead>
             <tr>
               <th style={{ width:140, minWidth:100 }}></th>
-              {MONTHS_AZ.map((m,i)=>(
-                <th key={i} style={{ fontSize:9,color:'#9ca3af',fontWeight:500,textAlign:'center',paddingBottom:4,minWidth:28 }}>{m}</th>
+              {MONTHS_AZ.map((m, i) => (
+                <th
+                  key={i}
+                  style={{
+                    fontSize:9,
+                    color:'#9ca3af',
+                    fontWeight:500,
+                    textAlign:'center',
+                    paddingBottom:4,
+                    minWidth:34
+                  }}
+                >
+                  {m}
+                </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
-            {items.map((item,ri)=>{
-              const s = parseInt(item.start_month)-1
-              const e = parseInt(item.end_month||item.start_month)-1
+            {items.map((item, ri) => {
+              const start = parseInt(item.start_month)
+              const end = parseInt(item.end_month || item.start_month)
+              const s = Math.min(start, end) - 1
+              const e = Math.max(start, end) - 1
+
               return (
                 <tr key={ri}>
-                  <td style={{ fontSize:11,color:'#374151',paddingRight:6,paddingBottom:2,maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                  <td
+                    style={{
+                      fontSize:11,
+                      color:'#374151',
+                      paddingRight:6,
+                      paddingBottom:2,
+                      maxWidth:140,
+                      overflow:'hidden',
+                      textOverflow:'ellipsis',
+                      whiteSpace:'nowrap'
+                    }}
+                  >
                     {item.text}
                   </td>
-              {MONTHS_AZ.map((_, mi) => {
-  const inRange = mi >= s && mi <= e
-  const isMsEnd = item.is_milestone && mi === e
 
-  return (
-    <td
-      key={mi}
-      style={{
-        padding: '1px',
-        height: 26,
-        position: 'relative',
-        minWidth: 34
-      }}
-    >
-      <div
-        style={{
-          borderRight: '1px solid rgba(0,0,0,.05)',
-          height: '100%',
-          position: 'absolute',
-          right: 0,
-          top: 0
-        }}
-      />
+                  {MONTHS_AZ.map((_, mi) => {
+                    const inRange = mi >= s && mi <= e
+                    const isMsEnd = item.is_milestone && mi === e
 
-      {inRange && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 1,
-            right: 1,
-            top: 6,
-            height: 13,
-            borderRadius: 2,
-            background: '#888780',
-            opacity: .6
-          }}
-        />
-      )}
+                    return (
+                      <td
+                        key={mi}
+                        style={{
+                          padding:'1px',
+                          height:34,
+                          position:'relative',
+                          minWidth:34
+                        }}
+                      >
+                        <div
+                          style={{
+                            borderRight:'1px solid rgba(0,0,0,.05)',
+                            height:'100%',
+                            position:'absolute',
+                            right:0,
+                            top:0
+                          }}
+                        />
 
-      {isMsEnd && (
-        <div
-          style={{
-            position: 'absolute',
-            right: -4,
-            top: 4,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            zIndex: 2,
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <div
-            style={{
-              width: 9,
-              height: 9,
-              background: '#D85A30',
-              transform: 'rotate(45deg)',
-              flexShrink: 0
-            }}
-          />
-          {item.milestone_label && (
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: '#D85A30',
-                lineHeight: 1
-              }}
-            >
-              {item.milestone_label}
-            </span>
-          )}
-        </div>
-      )}
-    </td>
-  )
-})}
+                        {inRange && (
+                          <div
+                            style={{
+                              position:'absolute',
+                              left:1,
+                              right:1,
+                              top:16,
+                              height:10,
+                              borderRadius:2,
+                              background:'#888780',
+                              opacity:.6
+                            }}
+                          />
+                        )}
+
+                        {isMsEnd && (
+                          <>
+                            <div
+                              style={{
+                                position:'absolute',
+                                right:-5,
+                                top:21,
+                                width:9,
+                                height:9,
+                                background:'#D85A30',
+                                transform:'rotate(45deg)',
+                                zIndex:3
+                              }}
+                            />
+                            {item.milestone_label && (
+                              <div
+                                style={{
+                                  position:'absolute',
+                                  right:-16,
+                                  top:3,
+                                  fontSize:10,
+                                  fontWeight:600,
+                                  color:'#D85A30',
+                                  whiteSpace:'nowrap',
+                                  lineHeight:1,
+                                  zIndex:3
+                                }}
+                              >
+                                {item.milestone_label}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
-      <div style={{ display:'flex',gap:14,marginTop:8 }}>
-        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#6b7280' }}>
-          <div style={{ width:16,height:9,borderRadius:2,background:'#888780',opacity:.6 }}/> Planlaşdırılan
+
+      <div style={{ display:'flex', gap:14, marginTop:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#6b7280' }}>
+          <div style={{ width:16, height:9, borderRadius:2, background:'#888780', opacity:.6 }}/> Planlaşdırılan
         </div>
-        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#6b7280' }}>
-          <div style={{ width:9,height:9,background:'#D85A30',transform:'rotate(45deg)',flexShrink:0 }}/> Milestone
+        <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#6b7280' }}>
+          <div style={{ width:9, height:9, background:'#D85A30', transform:'rotate(45deg)', flexShrink:0 }}/> Milestone
         </div>
       </div>
     </div>
