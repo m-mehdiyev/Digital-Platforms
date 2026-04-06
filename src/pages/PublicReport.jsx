@@ -42,13 +42,20 @@ export default function PublicReport() {
   const platforms = rd?.platforms || []
   const period = rd?.period || report.period_label
 
-  function goToSlide(idx) {
-    setCurrentSlide(idx)
-    const cont = platRef.current
-    if (!cont) return
-    const slides = cont.querySelectorAll('.pslide')
-    if (slides[idx]) cont.scrollTo({ top: slides[idx].offsetTop, behavior: 'smooth' })
-  }
+function goToSlide(idx) {
+  setCurrentSlide(idx)
+  const cont = platRef.current
+  if (!cont) return
+
+  const slides = cont.querySelectorAll('.pslide')
+  const target = slides[idx]
+  if (!target) return
+
+  target.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  })
+}
 
 function toggleSnap() {
   setSnapOn(prev => {
@@ -62,6 +69,36 @@ function toggleSnap() {
     setReport(r)
     setCurrentSlide(0)
     setShowPicker(false)
+    
+      }
+
+  useEffect(() => {
+  function handleScroll() {
+    const cont = platRef.current
+    if (!cont) return
+
+    const slides = cont.querySelectorAll('.pslide')
+    slides.forEach((s, i) => {
+      const r = s.getBoundingClientRect()
+      if (r.top >= -120 && r.top < window.innerHeight / 2) {
+        setCurrentSlide(i)
+      }
+    })
+  }
+
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll()
+
+  return () => window.removeEventListener('scroll', handleScroll)
+}, [report])
+    })
+  }
+
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll()
+
+  return () => window.removeEventListener('scroll', handleScroll)
+}, [report])
   }
 
   return (
@@ -71,7 +108,8 @@ function toggleSnap() {
       <ProgressBar />
       <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} className="pub-sidebar"/>
 
-      <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
+      <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(2
+      4px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
         <div style={{ fontSize:15,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
           <button onClick={toggleSnap} style={{ display:'flex',alignItems:'center',gap:6,background:snapOn?'rgba(99,102,241,0.08)':'rgba(0,0,0,0.04)',border:`1.5px solid ${snapOn?'rgba(99,102,241,0.2)':'#e5e7eb'}`,borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:snapOn?'#6366f1':'#9ca3af',cursor:'pointer',transition:'all .22s' }}>
@@ -159,13 +197,6 @@ function toggleSnap() {
 <div
   id="platforms"
   ref={platRef}
-  onScroll={e=>{
-    const slides = e.target.querySelectorAll('.pslide')
-    slides.forEach((s,i)=>{
-      const r = s.getBoundingClientRect()
-      if (r.top >= -50 && r.top < window.innerHeight / 2) setCurrentSlide(i)
-    })
-  }}
   style={{
     position: 'relative',
     padding: '24px 6vw 56px'
@@ -223,7 +254,7 @@ function OvCard({ p, idx, goToSlide }) {
   const [hov, setHov] = useState(false)
   return (
     <button
-      onClick={()=>{ document.getElementById('platforms')?.scrollIntoView({behavior:'smooth',block:'start'}); setTimeout(()=>goToSlide(idx),350) }}
+      onClick={() => goToSlide(idx)}
       onMouseEnter={()=>setHov(true)}
       onMouseLeave={()=>setHov(false)}
       className="glass-card"
