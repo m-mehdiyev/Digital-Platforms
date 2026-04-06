@@ -156,27 +156,25 @@ function toggleSnap() {
         </section>
 
         {/* PLATFORM SNAP VIEWER */}
-  <div id="platforms" ref={platRef}
+<div
+  id="platforms"
+  ref={platRef}
   style={{
-    height: snapOn ? 'calc(100vh - 67px)' : 'auto',
-    overflowY: snapOn ? 'auto' : 'visible',
-    scrollSnapType: snapOn ? 'y proximity' : 'none',
-    scrollBehavior: 'smooth',
-    position: 'relative'
+    position: 'relative',
+    padding: '24px 6vw 56px'
   }}
+>
           onScroll={e=>{
             const slides=e.target.querySelectorAll('.pslide')
             slides.forEach((s,i)=>{ const r=s.getBoundingClientRect(); if(r.top>=-50&&r.top<window.innerHeight/2) setCurrentSlide(i) })
           }}>
           {platforms.map((p,idx)=>(
-          <PlatformSlide
+    <PlatformSlide
   key={p.id}
   p={p}
   idx={idx}
   total={platforms.length}
   goToSlide={goToSlide}
-  currentSlide={currentSlide}
-  snapOn={snapOn}
 />
           ))}
         </div>
@@ -407,7 +405,7 @@ function GanttChart({ planned, acc }) {
     </div>
   )
 }
-function PlatformSlide({ p, idx, total, goToSlide, currentSlide, snapOn }) {
+function PlatformSlide({ p, idx, total, goToSlide }) {
   const [lightbox, setLightbox] = useState(null)
   const done = p.done||[]
   const rawPlanned = p.planned || [...(p.plan_month||[]), ...(p.plan_quarter||[]), ...(p.plan_year||[])]
@@ -416,29 +414,70 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide, snapOn }) {
   const hasGantt = plannedObjects.some(i => i.start_month)
   const stats = p.stats||[], screenshots = p.screenshots||[]
   const acc = p.color||'#6366f1'
+  const [visible, setVisible] = useState(false)
+const cardRef = useRef(null)
 
-  const dots = Array.from({length:total},(_,i)=>(
-    <button key={i} onClick={()=>goToSlide(i)}
-      style={{ width:i===currentSlide?20:6,height:6,borderRadius:i===currentSlide?3:'50%',background:i===currentSlide?'#6366f1':'#d1d5db',border:'none',cursor:'pointer',transition:'all .25s',padding:0,flexShrink:0 }}/>
-  ))
+useEffect(() => {
+  const el = cardRef.current
+  if (!el) return
 
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        setVisible(true)
+        observer.disconnect()
+      }
+    },
+    { threshold: 0.12 }
+  )
+
+  observer.observe(el)
+
+  return () => observer.disconnect()
+}, [])
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        setVisible(true)
+        observer.disconnect()
+      }
+    },
+    { threshold: 0.12 }
+  )
+
+  observer.observe(el)
+  return () => observer.disconnect()
+}, [])
+
+
+
+
+
+  
   return (
     <>
-    <div
+<div
+  ref={cardRef}
   className="pslide"
   id={p.id}
   data-idx={idx}
   style={{
-    minHeight: snapOn ? '100%' : 'auto',
-    scrollSnapAlign: snapOn ? 'start' : 'none',
-    scrollSnapStop: snapOn ? 'always' : 'normal',
-    display:'flex',
-    flexDirection:'column',
-    justifyContent:'center',
-    padding:'16px 4vw 44px',
-    position:'relative',
-    background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',
-    overflowY:'auto'
+    minHeight: 560,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    padding: '24px 28px',
+    marginBottom: 24,
+    position: 'relative',
+    background: 'linear-gradient(160deg, rgba(248,249,255,0.92), rgba(240,244,255,0.92))',
+    border: '1px solid rgba(255,255,255,0.75)',
+    borderRadius: 28,
+    boxShadow: '0 10px 30px rgba(80,90,140,0.08)',
+    overflow: 'hidden',
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(28px)',
+    transition: 'opacity .65s ease, transform .65s ease'
   }}
 >
   <div
@@ -533,10 +572,7 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide, snapOn }) {
           )}
         </div>
 
-        <div style={{ position:'absolute',bottom:12,left:'50%',transform:'translateX(-50%)',display:'flex',gap:5,alignItems:'center' }}>
-          {dots}
-        </div>
-      </div>
+             </div>
 
       {lightbox!==null&&(
         <Lightbox images={screenshots} index={lightbox} onClose={()=>setLightbox(null)} accentColor={acc} />
