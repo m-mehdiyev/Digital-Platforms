@@ -227,3 +227,25 @@ body { font-family: Arial, Helvetica, sans-serif; background: #f0f4ff; color: #1
 .access-denied { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; text-align: center; padding: 40px; }
 .access-denied h1 { font-size: 28px; font-weight: 700; color: #0f172a; }
 .access-denied p { font-size: 15px; color: #6b7280; max-width: 400px; }
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 640px) {
+  /* Platform slide içindəki 2 sütun → 1 sütun */
+  .pslide > div > div > div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Stats grid mobile */
+  .pslide > div > div > div[style*="repeat("] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Hero h1 */
+  .pslide { padding: 12px 16px 40px !important; }
+
+  /* Sidebar gizlə mobile-da */
+  .pub-sidebar { display: none !important; }
+
+  /* Nav margin sıfırla */
+  .pub-content { margin-left: 0 !important; }
+}

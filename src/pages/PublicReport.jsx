@@ -70,9 +70,9 @@ export default function PublicReport() {
       <div className="orbs"><div className="orb o1"/><div className="orb o2"/><div className="orb o3"/></div>
       <CursorGlow />
       <ProgressBar />
-      <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} />
+      <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} className="pub-sidebar"/>
 
-      <nav style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
+      <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
         <div style={{ fontSize:15,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
           <button onClick={toggleSnap} style={{ display:'flex',alignItems:'center',gap:6,background:snapOn?'rgba(99,102,241,0.08)':'rgba(0,0,0,0.04)',border:`1.5px solid ${snapOn?'rgba(99,102,241,0.2)':'#e5e7eb'}`,borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:snapOn?'#6366f1':'#9ca3af',cursor:'pointer',transition:'all .22s' }}>
@@ -104,7 +104,7 @@ export default function PublicReport() {
         </div>
       </nav>
 
-      <div style={{ marginLeft:72,position:'relative',zIndex:2 }}>
+      <div className="pub-content" style={{ marginLeft:72,position:'relative',zIndex:2 }}>
 
         {/* HERO */}
         <section style={{ minHeight:'100vh',display:'flex',flexDirection:'column',justifyContent:'center',padding:'100px 6vw 60px',background:'linear-gradient(160deg,#0f0c29 0%,#302b63 50%,#24243e 100%)',overflow:'hidden',position:'relative' }}>
@@ -112,16 +112,12 @@ export default function PublicReport() {
             <div style={{ position:'absolute',width:700,height:700,borderRadius:'50%',filter:'blur(80px)',background:'rgba(99,102,241,.35)',top:-200,right:-150,animation:'orbDrift 12s ease-in-out infinite alternate' }}/>
             <div style={{ position:'absolute',width:500,height:500,borderRadius:'50%',filter:'blur(80px)',background:'rgba(139,92,246,.25)',bottom:-100,left:-80,animation:'orbDrift 12s ease-in-out infinite alternate',animationDelay:'-5s' }}/>
           </div>
-          <div style={{ position:'relative',zIndex:2 }}>
-            {/* IRIA logo — sağ yuxarıda */}
-            <div style={{ position:'absolute', top:-60, right:0 }}>
-              <img src={`data:image/png;base64,${IRIA_LOGO}`} alt="IRIA"
-                style={{ height:52, objectFit:'contain', opacity:.85, filter:'brightness(0) invert(1)' }}/>
-            </div>
-
-            <div style={{ display:'inline-flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,letterSpacing:'.15em',textTransform:'uppercase',color:'rgba(196,181,253,.9)',marginBottom:28 }}>
-              <span style={{ width:7,height:7,borderRadius:'50%',background:'#a78bfa',animation:'ep 2s infinite',display:'inline-block' }}/>{period}
-            </div>
+          <div style={{ position:'relative',zIndex:2, display:'flex', alignItems:'center', justifyContent:'space-between', gap:40 }}>
+            {/* Sol: mətn */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:'inline-flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,letterSpacing:'.15em',textTransform:'uppercase',color:'rgba(196,181,253,.9)',marginBottom:28 }}>
+                <span style={{ width:7,height:7,borderRadius:'50%',background:'#a78bfa',animation:'ep 2s infinite',display:'inline-block' }}/>{period}
+              </div>
             <h1 style={{ fontSize:'clamp(52px,7vw,96px)',fontWeight:700,lineHeight:1,color:'#fff',letterSpacing:'-.025em',marginBottom:16 }}>
               Rəqəmsal<br/>
               <span style={{ background:'linear-gradient(135deg,#c4b5fd,#a78bfa,#818cf8)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text' }}>Platformalar</span>
@@ -138,7 +134,15 @@ export default function PublicReport() {
                 </div>
               ))}
             </div>
-          </div>
+            </div>{/* sol mətn bağlandı */}
+
+            {/* Sağ: IRIA loqosu */}
+            <div style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 40px' }}>
+              <img src={`data:image/png;base64,${IRIA_LOGO}`} alt="IRIA"
+                style={{ height:120, maxWidth:320, objectFit:'contain', filter:'brightness(0) invert(1)', opacity:.9 }}/>
+            </div>
+
+          </div>{/* flex wrapper bağlandı */}
           <div style={{ position:'absolute',bottom:32,left:'50%',transform:'translateX(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer',animation:'sh 2.5s infinite' }}
             onClick={()=>document.getElementById('overview')?.scrollIntoView({behavior:'smooth'})}>
             <div style={{ width:44,height:44,borderRadius:'50%',border:'1.5px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.06)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'rgba(255,255,255,.5)' }}>↓</div>
@@ -183,6 +187,24 @@ export default function PublicReport() {
         @keyframes sh{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
         @keyframes lbIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
         @keyframes imgIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+
+        /* ── MOBILE ── */
+        @media (max-width: 640px) {
+          /* Sidebar gizlə */
+          .pub-sidebar { display: none !important; }
+          /* Content tam genişlik */
+          .pub-content { margin-left: 0 !important; }
+          /* Nav sol mənfəz sıfırla */
+          .pub-nav { left: 0 !important; }
+          /* pslide padding azalt */
+          .pslide { padding: 12px 14px 36px !important; }
+          /* Mətn + şəkil sütunları alt-alta */
+          .mobile-col { flex-direction: column !important; }
+          /* İki sütunlu grid → bir sütun */
+          .mobile-grid-1 { grid-template-columns: 1fr !important; }
+          /* Stats 4 sütun → 2 sütun */
+          .mobile-stats { grid-template-columns: repeat(2,1fr) !important; }
+        }
       `}</style>
     </div>
   )
@@ -227,7 +249,7 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
   return (
     <>
       <div className="pslide" id={p.id} data-idx={idx}
-        style={{ height:'100%',minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 4vw 44px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflow:'hidden' }}>
+        style={{ minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 4vw 44px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflowY:'auto' }}>
         <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.06,pointerEvents:'none' }}/>
 
         <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:11 }}>
@@ -241,7 +263,7 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
 
           {/* Stats */}
           {stats.length>0&&(
-            <div style={{ display:'grid',gridTemplateColumns:`repeat(${Math.min(stats.length,4)},1fr)`,gap:9 }}>
+            <div className="mobile-stats" style={{ display:'grid',gridTemplateColumns:`repeat(${Math.min(stats.length,4)},1fr)`,gap:9 }}>
               {stats.map((s,i)=>(
                 <div key={i} style={{ background:'rgba(255,255,255,.8)',border:'1.5px solid rgba(255,255,255,.95)',borderRadius:14,padding:'12px 15px',backdropFilter:'blur(8px)',boxShadow:'0 2px 12px rgba(60,60,120,0.07)' }}>
                   <span style={{ display:'block',fontSize:22,fontWeight:700,color:acc,lineHeight:1,marginBottom:3 }}>{s.v}</span>
@@ -251,11 +273,11 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
             </div>
           )}
 
-          {/* Body */}
-          <div style={{ display:'flex',gap:12,alignItems:'flex-start' }}>
-            {/* Cols */}
-            <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:11,flex:1,minWidth:0 }}>
-              <div className="glass-card" style={{ padding:'14px 18px',borderTop:`3px solid ${acc}` }}>
+          {/* Body — mobile: şəkillər aşağıya düşür */}
+          <div className="mobile-col" style={{ display:'flex', gap:12, alignItems:'flex-start', flexWrap:'wrap' }}>
+            {/* Mətn sütunları — daha geniş */}
+            <div className="mobile-grid-1" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:11, flex:'1 1 500px', minWidth:0 }}>
+              <div className="glass-card" style={{ padding:'14px 18px', borderTop:`3px solid ${acc}` }}>
                 <div style={{ fontSize:12,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:acc,marginBottom:11 }}>✓ Görülən İşlər</div>
                 <ul style={{ listStyle:'none' }}>
                   {done.length ? done.map((d,i)=>(
@@ -277,9 +299,9 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
               </div>
             </div>
 
-            {/* Screenshots — sadə, frame yox */}
+            {/* Screenshots — daha dar, mətnə yer açır */}
             {screenshots.length>0&&(
-              <div style={{ flexShrink:0,width:280 }}>
+              <div style={{ flex:'0 0 200px', minWidth:0 }}>
                 <div style={{ fontSize:13,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',color:acc,marginBottom:10 }}>📷 Ekran Görüntüləri</div>
                 {screenshots.length===1 ? (
                   <div onClick={()=>setLightbox(0)}
@@ -402,7 +424,7 @@ function Lightbox({ images, index, onClose, accentColor }) {
 /* Sidebar */
 function Sidebar({ platforms, currentSlide, goToSlide }) {
   return (
-    <div style={{ position:'fixed',left:0,top:3,bottom:0,width:72,zIndex:700,background:'rgba(255,255,255,0.85)',backdropFilter:'blur(24px) saturate(200%)',borderRight:'1px solid rgba(99,102,241,0.1)',boxShadow:'2px 0 20px rgba(60,60,120,0.07)',display:'flex',flexDirection:'column',alignItems:'center',padding:'72px 0 12px',gap:3,overflow:'visible' }}>
+    <div className="pub-sidebar" style={{ position:'fixed',left:0,top:3,bottom:0,width:72,zIndex:700,background:'rgba(255,255,255,0.85)',backdropFilter:'blur(24px) saturate(200%)',borderRight:'1px solid rgba(99,102,241,0.1)',boxShadow:'2px 0 20px rgba(60,60,120,0.07)',display:'flex',flexDirection:'column',alignItems:'center',padding:'72px 0 12px',gap:3,overflow:'visible' }}>
       {platforms.map((p,idx)=>{
         const isActive=currentSlide===idx; const acc=p.color||'#6366f1'
         return (
