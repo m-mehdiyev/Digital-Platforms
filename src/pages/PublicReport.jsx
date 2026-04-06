@@ -156,10 +156,10 @@ function toggleSnap() {
         </section>
 
         {/* PLATFORM SNAP VIEWER */}
-       <div id="platforms" ref={platRef}
+  <div id="platforms" ref={platRef}
   style={{
-    height: 'calc(100vh - 67px)',
-    overflowY: 'auto',
+    height: snapOn ? 'calc(100vh - 67px)' : 'auto',
+    overflowY: snapOn ? 'auto' : 'visible',
     scrollSnapType: snapOn ? 'y proximity' : 'none',
     scrollBehavior: 'smooth',
     position: 'relative'
@@ -399,7 +399,7 @@ function GanttChart({ planned, acc }) {
     </div>
   )
 }
-function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
+function PlatformSlide({ p, idx, total, goToSlide, currentSlide, snapOn }) {
   const [lightbox, setLightbox] = useState(null)
   const done = p.done||[]
   const rawPlanned = p.planned || [...(p.plan_month||[]), ...(p.plan_quarter||[]), ...(p.plan_year||[])]
@@ -417,7 +417,18 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
   return (
     <>
       <div className="pslide" id={p.id} data-idx={idx}
-        style={{ minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 4vw 44px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflowY:'auto' }}>
+       style={{
+  minHeight: snapOn ? '100%' : 'auto',
+  scrollSnapAlign: snapOn ? 'start' : 'none',
+  scrollSnapStop: snapOn ? 'always' : 'normal',
+  display:'flex',
+  flexDirection:'column',
+  justifyContent:'center',
+  padding:'16px 4vw 44px',
+  position:'relative',
+  background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',
+  overflowY:'auto'
+}}
         <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.06,pointerEvents:'none' }}/>
 
         <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:11 }}>
