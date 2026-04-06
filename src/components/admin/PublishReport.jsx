@@ -218,8 +218,10 @@ function MiniGantt({ planned, acc }) {
           </thead>
           <tbody>
             {planned.filter(p => p.start_month).map((item, i) => {
-              const s = parseInt(item.start_month) - 1
-              const e = parseInt(item.end_month || item.start_month) - 1
+              const start = parseInt(item.start_month)
+const end = parseInt(item.end_month || item.start_month)
+const s = Math.min(start, end) - 1
+const e = Math.max(start, end) - 1
               return (
                 <tr key={i}>
                   <td style={{ fontSize: 11, color: '#374151', paddingRight: 8, paddingBottom: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
