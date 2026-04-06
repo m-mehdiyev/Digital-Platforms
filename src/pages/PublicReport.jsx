@@ -17,7 +17,10 @@ export default function PublicReport() {
       .select('id, period_label, published_at, report_data')
       .order('published_at', { ascending: false })
     setReports(data || [])
-    if (data?.[0]) setSelectedReport(data[0])
+    const params = new URLSearchParams(window.location.search)
+    const reportId = params.get('reportId')
+    const selected = (data || []).find(r => r.id === reportId) || data?.[0]
+    if (selected) setSelectedReport(selected)
     setLoading(false)
   }
 
@@ -212,28 +215,43 @@ function OvCard({ p, idx, goToSlide, scrollToPlatforms }) {
 /* ── Gantt Chart ── */
 function PlannedList({ items, accentColor }) {
   if (!items || items.length === 0) return (
-    <div style={{ color:'#9ca3af',fontStyle:'italic',fontSize:12 }}>Məlumat yoxdur</div>
+    <div style={{ color:'#9ca3af', fontStyle:'italic', fontSize:12 }}>Məlumat yoxdur</div>
   )
   const acc = accentColor || '#6366f1'
-  return (
+
+  const byMonth = items.filter(i => (i.plan_group || i.type || i.plan_type) === 'next_month' || i.type === 'month' || i.plan_type === 'month')
+  const byYear  = items.filter(i => (i.plan_group || i.type || i.plan_type) === 'year_end' || i.type === 'year' || i.plan_type === 'year')
+  const other   = items.filter(i => !i.type && !i.plan_type && !i.plan_group)
+
+  const List = ({ list }) => (
     <ul style={{ listStyle:'none' }}>
-      {items.map((item,i)=>{
-        const startStr = [item.start_month, item.start_year].filter(Boolean).join(' ')
-        const endStr = [item.due_month, item.due_year].filter(Boolean).join(' ')
-        const dateStr = [startStr, endStr].filter(Boolean).join(' → ')
-        return (
-          <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:12,color:'#374151',lineHeight:1.5,padding:'6px 0',borderBottom:i<items.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
-            <i style={{ fontStyle:'normal',fontSize:13,color:acc,flexShrink:0,lineHeight:1.4 }}>›</i>
-            <span style={{ flex:1 }}>{item.text}</span>
-            {dateStr && (
-              <span style={{ fontSize:10,fontWeight:700,color:acc,background:acc+'14',padding:'2px 7px',borderRadius:100,flexShrink:0,whiteSpace:'nowrap' }}>
-                {dateStr}
-              </span>
-            )}
-          </li>
-        )
-      })}
+      {list.map((item, i) => (
+        <li key={i} style={{ display:'flex', gap:8, alignItems:'flex-start', fontSize:12, color:'#374151', lineHeight:1.5, padding:'5px 0', borderBottom: i<list.length-1 ? '1px solid rgba(0,0,0,.04)' : 'none' }}>
+          <i style={{ fontStyle:'normal', fontSize:13, color:acc, flexShrink:0, lineHeight:1.4 }}>›</i>
+          <span>{item.text}</span>
+        </li>
+      ))}
     </ul>
+  )
+
+  const SectionLabel = ({ label }) => (
+    <div style={{ fontSize:10, fontWeight:700, color:acc, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6, marginTop:10, opacity:.7 }}>
+      {label}
+    </div>
+  )
+
+  return (
+    <div>
+      {byMonth.length > 0 && <>
+        <SectionLabel label="Növbəti ay görüləcək işlər" />
+        <List list={byMonth} />
+      </>}
+      {byYear.length > 0 && <>
+        <SectionLabel label="İlin sonunadək görüləcək işlər" />
+        <List list={byYear} />
+      </>}
+      {other.length > 0 && <List list={other} />}
+    </div>
   )
 }
 
