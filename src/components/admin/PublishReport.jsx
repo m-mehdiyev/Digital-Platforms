@@ -225,21 +225,84 @@ function MiniGantt({ planned, acc }) {
                   <td style={{ fontSize: 11, color: '#374151', paddingRight: 8, paddingBottom: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.text}
                   </td>
-                  {MONTHS.map((_, mi) => {
-                    const inRange = mi >= s && mi <= e
-                    const isMsEnd = item.is_milestone && mi === e
-                    return (
-                      <td key={mi} style={{ padding: '2px 1px', height: 22, position: 'relative' }}>
-                        <div style={{ borderRight: '1px solid #f1f3f9', height: '100%', position: 'absolute', right: 0, top: 0 }}/>
-                        {inRange && !isMsEnd && (
-                          <div style={{ height: 14, borderRadius: 3, background: '#888780', opacity: .65, margin: '4px 1px' }}/>
-                        )}
-                        {isMsEnd && (
-                          <div title={item.milestone_label} style={{ width: 10, height: 10, background: '#D85A30', transform: 'rotate(45deg)', margin: '6px auto' }}/>
-                        )}
-                      </td>
-                    )
-                  })}
+                 {MONTHS.map((_, mi) => {
+  const inRange = mi >= s && mi <= e
+  const isMsEnd = item.is_milestone && mi === e
+
+  return (
+    <td
+      key={mi}
+      style={{
+        padding: '2px 1px',
+        height: 28,
+        position: 'relative',
+        minWidth: 42
+      }}
+    >
+      <div
+        style={{
+          borderRight: '1px solid #f1f3f9',
+          height: '100%',
+          position: 'absolute',
+          right: 0,
+          top: 0
+        }}
+      />
+
+      {inRange && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 1,
+            right: 1,
+            top: 7,
+            height: 14,
+            borderRadius: 3,
+            background: '#888780',
+            opacity: .65
+          }}
+        />
+      )}
+
+      {isMsEnd && (
+        <div
+          style={{
+            position: 'absolute',
+            right: -6,
+            top: 5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            zIndex: 2,
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              background: '#D85A30',
+              transform: 'rotate(45deg)',
+              flexShrink: 0
+            }}
+          />
+          {item.milestone_label && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: '#D85A30',
+                lineHeight: 1
+              }}
+            >
+              {item.milestone_label}
+            </span>
+          )}
+        </div>
+      )}
+    </td>
+  )
+})}
                 </tr>
               )
             })}
