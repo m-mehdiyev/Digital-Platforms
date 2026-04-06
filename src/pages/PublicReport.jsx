@@ -324,37 +324,40 @@ function GanttChart({ planned, acc }) {
       transform:'translateY(-50%)'
     }}
   />
-)}
+{isMsEnd && (
+  <>
+    <div
+      style={{
+        position:'absolute',
+        right:-5,
+        top:'50%',
+        width:9,
+        height:9,
+        background:'#D85A30',
+        transform:'translateY(-50%) rotate(45deg)',
+        zIndex:3
+      }}
+    />
 
-            <div
-  style={{
-    position:'absolute',
-    right:-5,
-    top:'50%',
-    width:9,
-    height:9,
-    background:'#D85A30',
-    transform:'translateY(-50%) rotate(45deg)',
-    zIndex:3
-  }}
-/>
-                           {item.milestone_label && (
-  <div
-    style={{
-      position:'absolute',
-      right:-10,
-      top:'50%',
-      transform:'translate(-10%, -170%)',
-      fontSize:10,
-      fontWeight:600,
-      color:'#D85A30',
-      whiteSpace:'nowrap',
-      lineHeight:1,
-      zIndex:3
-    }}
-  >
-    {item.milestone_label}
-  </div>
+    {item.milestone_label && (
+      <div
+        style={{
+          position:'absolute',
+          right:-10,
+          top:'50%',
+          transform:'translate(-10%, -170%)',
+          fontSize:10,
+          fontWeight:600,
+          color:'#D85A30',
+          whiteSpace:'nowrap',
+          lineHeight:1,
+          zIndex:3
+        }}
+      >
+        {item.milestone_label}
+      </div>
+    )}
+  </>
 )}
                               >
                                 {item.milestone_label}
