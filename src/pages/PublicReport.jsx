@@ -180,7 +180,7 @@ function OvCard({ p, idx, goToSlide }) {
 /* Platform slide */
 function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
   const [lightbox, setLightbox] = useState(null)
-  const done = p.done||[], planMonth = p.plan_month||[], planQuarter = p.plan_quarter||[], planYear = p.plan_year||[]
+  const done = p.done||[], planned = p.planned || [...(p.plan_month||[]), ...(p.plan_quarter||[]), ...(p.plan_year||[])]
   const stats = p.stats||[], screenshots = p.screenshots||[]
   const acc = p.color||'#6366f1'
 
@@ -233,12 +233,11 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
               <div className="glass-card" style={{ padding:'14px 18px' }}>
                 <div style={{ fontSize:10,fontWeight:700,letterSpacing:'.09em',textTransform:'uppercase',color:'#2563eb',marginBottom:11 }}>› Planlaşdırılan</div>
                 <ul style={{ listStyle:'none' }}>
-                  {[...planMonth.map(t=>({t,tag:'ay'})),...planQuarter.map(t=>({t,tag:'rüb'})),...planYear.map(t=>({t,tag:'il'}))].map(({t},i,arr)=>(
-                    <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:12,color:'#374151',lineHeight:1.5,padding:'5px 0',borderBottom:i<arr.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
+                  {planned.length ? planned.map((t,i)=>(
+                    <li key={i} style={{ display:'flex',gap:8,alignItems:'flex-start',fontSize:12,color:'#374151',lineHeight:1.5,padding:'5px 0',borderBottom:i<planned.length-1?'1px solid rgba(0,0,0,.04)':'none' }}>
                       <i style={{ fontStyle:'normal',fontSize:13,color:'#2563eb',flexShrink:0,lineHeight:1 }}>›</i>{t}
                     </li>
-                  ))}
-                  {!planMonth.length&&!planQuarter.length&&!planYear.length&&<li style={{ color:'#9ca3af',fontStyle:'italic',fontSize:12 }}>Məlumat yoxdur</li>}
+                  )) : <li style={{ color:'#9ca3af',fontStyle:'italic',fontSize:12 }}>Məlumat yoxdur</li>}
                 </ul>
               </div>
             </div>

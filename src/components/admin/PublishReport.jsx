@@ -1,140 +1,381 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Send, Eye } from 'lucide-react'
+import { Send, Eye, Edit2, X, Plus, Trash2, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-export default function PublishReport() {
-  const [period, setPeriod] = useState('')
-  const [periods, setPeriods] = useState([])
-  const [platforms, setPlatforms] = useState([])
-  const [preview, setPreview] = useState(null)
-  const [publishing, setPublishing] = useState(false)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => { fetchData() }, [])
-
-  async function fetchData() {
-    setLoading(true)
-    const { data: plats } = await supabase.from('platforms').select('*').order('order_index')
-    const { data: reps } = await supabase.from('report_periods').select('period_label').order('period_label')
-    setPlatforms(plats || [])
-    const uniquePeriods = [...new Set((reps || []).map(r => r.period_label))]
-    setPeriods(uniquePeriods)
-    if (uniquePeriods[0]) setPeriod(uniquePeriods[0])
-    setLoading(false)
-  }
-
-  async function generatePreview() {
-    if (!period) return toast.error('Dövrü seçin')
-    setPublishing(true)
-    try {
-      const data = await gatherReportData(period, platforms)
-      setPreview(data)
-    } catch (e) {
-      toast.error('Məlumatlar yüklənərkən xəta')
-    }
-    setPublishing(false)
-  }
-
-  async function publish() {
-    if (!preview) return toast.error('Əvvəlcə önizləmə yaradın')
-    setPublishing(true)
-    try {
-      await supabase.from('published_reports').insert({
-        period_label: period,
-        report_data: preview,
-        published_at: new Date().toISOString()
-      })
-      toast.success('Hesabat uğurla yayımlandı! 🎉')
-      setPreview(null)
-    } catch (e) {
-      toast.error('Yayımlanarkən xəta')
-    }
-    setPublishing(false)
-  }
-
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>
-
-  return (
-    <div>
-      <div className="admin-topbar">
-        <div>
-          <div className="admin-page-title">Hesabat Yayımla</div>
-          <div className="admin-page-sub">Dövr seçin və hesabatı ictimaiyyətə açın</div>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 20, maxWidth: 500 }}>
-        <div className="card-title">Dövr Seçin</div>
-        <div className="form-group">
-          <select className="form-select" value={period} onChange={e => setPeriod(e.target.value)}>
-            <option value="">Dövrü seçin...</option>
-            {periods.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary" onClick={generatePreview} disabled={publishing}>
-            <Eye size={15} /> Önizləmə
-          </button>
-          {preview && (
-            <button className="btn btn-success" onClick={publish} disabled={publishing}>
-              <Send size={15} /> {publishing ? 'Yayımlanır...' : 'Yayımla'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {preview && (
-        <div className="card">
-          <div className="card-title">Önizləmə — {period}</div>
-          <table className="data-table">
-            <thead>
-              <tr><th>Platforma</th><th>Görülən İşlər</th><th>Planlar</th><th>KPI</th><th>Screenshotlar</th></tr>
-            </thead>
-            <tbody>
-              {preview.platforms.map(p => (
-                <tr key={p.id}>
-                  <td><strong>{p.name}</strong></td>
-                  <td><span className="badge badge-green">{p.done?.length || 0}</span></td>
-                  <td><span className="badge badge-blue">{(p.plan_month?.length || 0) + (p.plan_quarter?.length || 0) + (p.plan_year?.length || 0)}</span></td>
-                  <td><span className="badge badge-blue">{p.stats?.length || 0}</span></td>
-                  <td><span className="badge badge-gray">{p.screenshots?.length || 0}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
+// ─── DB-dən hesabat məlumatlarını topla ──────────────────
 async function gatherReportData(period, platforms) {
   const result = { period, generatedAt: new Date().toISOString(), platforms: [] }
-
   for (const plat of platforms) {
     const { data: rep } = await supabase
       .from('report_periods')
       .select('*, completed_items(*), planned_items(*), statistics(*), attachments(*)')
       .eq('platform_id', plat.id)
       .eq('period_label', period)
-      .single()
-
+      .maybeSingle()
     result.platforms.push({
-      id: plat.id,
-      name: plat.name,
-      tagline: plat.tagline,
-      color: plat.color,
-      logo_url: plat.logo_url,
-      done: rep?.completed_items?.sort((a, b) => a.order_index - b.order_index).map(i => i.text) || [],
-      plan_month: rep?.planned_items?.filter(i => i.plan_type === 'month').sort((a, b) => a.order_index - b.order_index).map(i => i.text) || [],
-      plan_quarter: rep?.planned_items?.filter(i => i.plan_type === 'quarter').sort((a, b) => a.order_index - b.order_index).map(i => i.text) || [],
-      plan_year: rep?.planned_items?.filter(i => i.plan_type === 'year').sort((a, b) => a.order_index - b.order_index).map(i => i.text) || [],
-      stats: rep?.statistics?.sort((a, b) => a.order_index - b.order_index).map(s => ({ v: s.value, l: s.label, u: s.unit })) || [],
-      screenshots: rep?.attachments?.filter(a => a.file_type === 'screenshot').map(a => a.file_url) || [],
+      id: plat.id, name: plat.name, tagline: plat.tagline,
+      color: plat.color, logo_url: plat.logo_url,
+      done: rep?.completed_items?.sort((a,b)=>a.order_index-b.order_index).map(i=>i.text) || [],
+      planned: rep?.planned_items?.sort((a,b)=>a.order_index-b.order_index).map(i=>i.text) || [],
+      stats: rep?.statistics?.sort((a,b)=>a.order_index-b.order_index).map(s=>({ v:s.value, l:s.label })) || [],
+      screenshots: rep?.attachments?.filter(a=>a.file_type==='screenshot').map(a=>a.file_url) || [],
       issue: rep?.issue_text || '',
     })
   }
-
   return result
+}
+
+// ─── Ana komponent ────────────────────────────────────────
+export default function PublishReport() {
+  const [period, setPeriod]       = useState('')
+  const [periods, setPeriods]     = useState([])
+  const [platforms, setPlatforms] = useState([])
+  const [preview, setPreview]     = useState(null)
+  const [busy, setBusy]           = useState(false)
+  const [loading, setLoading]     = useState(true)
+  const [editing, setEditing]     = useState(false)  // edit modal
+  const [editData, setEditData]   = useState(null)   // kopyası
+
+  useEffect(() => { fetchData() }, [])
+
+  async function fetchData() {
+    setLoading(true)
+    const [{ data: plats }, { data: reps }] = await Promise.all([
+      supabase.from('platforms').select('*').order('order_index'),
+      supabase.from('report_periods').select('period_label').order('period_label'),
+    ])
+    setPlatforms(plats || [])
+    const unique = [...new Set((reps || []).map(r => r.period_label))]
+    setPeriods(unique)
+    if (unique[0]) setPeriod(unique[0])
+    setLoading(false)
+  }
+
+  async function generatePreview() {
+    if (!period) return toast.error('Dövrü seçin')
+    setBusy(true)
+    try {
+      const data = await gatherReportData(period, platforms)
+      setPreview(data)
+    } catch (e) { toast.error('Xəta: ' + e.message) }
+    setBusy(false)
+  }
+
+  async function publish(data) {
+    const rd = data || preview
+    if (!rd) return toast.error('Əvvəlcə önizləmə yaradın')
+    setBusy(true)
+    try {
+      const { error } = await supabase.from('published_reports').insert({
+        period_label: rd.period, report_data: rd, published_at: new Date().toISOString()
+      })
+      if (error) throw new Error(error.message)
+      toast.success('✅ Hesabat yayımlandı!')
+      setPreview(null); setEditing(false); setEditData(null)
+    } catch (e) { toast.error('Xəta: ' + e.message) }
+    setBusy(false)
+  }
+
+  function openEdit() {
+    setEditData(JSON.parse(JSON.stringify(preview))) // dərin kopiya
+    setEditing(true)
+  }
+
+  function saveEdit() {
+    setPreview(editData)
+    setEditing(false)
+    toast.success('Dəyişikliklər yadda saxlanıldı')
+  }
+
+  function editPlat(platId, field, val) {
+    setEditData(prev => ({
+      ...prev,
+      platforms: prev.platforms.map(p => p.id === platId ? { ...p, [field]: val } : p)
+    }))
+  }
+
+  if (loading) return <div className="loading-screen"><div className="spinner"/></div>
+
+  return (
+    <div>
+      <div className="admin-topbar">
+        <div>
+          <div className="admin-page-title">Hesabat Yayımla</div>
+          <div className="admin-page-sub">Dövr seçin, önizləyin və yayımlayın</div>
+        </div>
+        {preview && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-secondary" onClick={openEdit}>
+              <Edit2 size={14}/> Redaktə Et
+            </button>
+            <button className="btn btn-success" onClick={() => publish(preview)} disabled={busy}>
+              <Send size={15}/> {busy ? 'Yayımlanır...' : 'Yayımla'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Dövr seçici */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
+            <label className="form-label">Hesabat Dövrü</label>
+            <select className="form-select" value={period} onChange={e => { setPeriod(e.target.value); setPreview(null) }}>
+              <option value="">Seçin...</option>
+              {periods.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <button className="btn btn-secondary" onClick={generatePreview} disabled={busy}>
+            <Eye size={15}/> {busy ? 'Yüklənir...' : 'Önizləmə Yarat'}
+          </button>
+        </div>
+      </div>
+
+      {/* Önizləmə */}
+      {preview && (
+        <>
+          {/* Xülasə cədvəl */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div className="card-title" style={{ marginBottom: 0 }}>Xülasə — {preview.period}</div>
+              <button className="btn btn-secondary btn-sm" onClick={openEdit}>
+                <Edit2 size={13}/> Redaktə Et
+              </button>
+            </div>
+            <table className="data-table">
+              <thead>
+                <tr><th>Platforma</th><th>Görülən</th><th>Görüləcək</th><th>KPI</th><th>Şəkil</th></tr>
+              </thead>
+              <tbody>
+                {preview.platforms.map(p => (
+                  <tr key={p.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {p.logo_url && <img src={p.logo_url} alt="" style={{ height: 22, maxWidth: 70, objectFit: 'contain' }}/>}
+                        <strong style={{ fontSize: 14 }}>{p.name}</strong>
+                      </div>
+                    </td>
+                    <td><span className={`badge ${p.done?.length ? 'badge-green' : 'badge-gray'}`}>{p.done?.length || 0}</span></td>
+                    <td><span className={`badge ${p.planned?.length ? 'badge-blue' : 'badge-gray'}`}>{p.planned?.length || 0}</span></td>
+                    <td><span className={`badge ${p.stats?.length ? 'badge-blue' : 'badge-gray'}`}>{p.stats?.length || 0}</span></td>
+                    <td><span className="badge badge-gray">{p.screenshots?.length || 0}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tam detallı önizləmə — scroll edilə bilən */}
+          <div className="card">
+            <div className="card-title">📋 Tam Önizləmə (yayımlanacaq məlumatlar)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              {preview.platforms.map((p, idx) => (
+                <PlatformPreviewCard key={p.id} p={p} idx={idx}/>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Edit Modal */}
+      {editing && editData && (
+        <EditModal
+          data={editData}
+          onChange={(platId, field, val) => editPlat(platId, field, val)}
+          onSave={saveEdit}
+          onClose={() => setEditing(false)}
+          onPublish={() => publish(editData)}
+          busy={busy}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Tam Önizləmə Kartı ───────────────────────────────────
+function PlatformPreviewCard({ p, idx }) {
+  const acc = p.color || '#6366f1'
+  const isEven = idx % 2 === 0
+
+  return (
+    <div style={{
+      border: `1.5px solid ${acc}30`,
+      borderRadius: 16,
+      overflow: 'hidden',
+      background: isEven ? 'rgba(255,255,255,0.8)' : 'rgba(248,250,255,0.8)',
+    }}>
+      {/* Header */}
+      <div style={{ background: `linear-gradient(135deg, ${acc}12, ${acc}06)`, padding: '16px 20px', borderBottom: `1px solid ${acc}20`, display: 'flex', alignItems: 'center', gap: 14 }}>
+        {p.logo_url && <img src={p.logo_url} alt="" style={{ height: 36, maxWidth: 140, objectFit: 'contain', objectPosition: 'left' }}/>}
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{p.name}</div>
+          {p.tagline && <div style={{ fontSize: 13, color: '#6b7280' }}>{p.tagline}</div>}
+        </div>
+        {p.issue && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '4px 10px' }}>
+            ⚠️ {p.issue}
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: '20px' }}>
+        {/* KPI stats */}
+        {p.stats?.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(p.stats.length, 4)}, 1fr)`, gap: 10, marginBottom: 20 }}>
+            {p.stats.map((s, i) => (
+              <div key={i} style={{ background: `${acc}0d`, border: `1px solid ${acc}25`, borderRadius: 12, padding: '12px 14px' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: acc, lineHeight: 1, marginBottom: 4 }}>{s.v}</div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: p.screenshots?.length ? '1fr 1fr 240px' : '1fr 1fr', gap: 16 }}>
+          {/* Görülən işlər */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #d1fae5' }}>
+              ✓ Görülən İşlər
+            </div>
+            {p.done?.length ? (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {p.done.map((d, i) => (
+                  <li key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#374151', padding: '5px 0', borderBottom: i < p.done.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
+                    <span style={{ color: '#059669', fontWeight: 700, flexShrink: 0 }}>✓</span>{d}
+                  </li>
+                ))}
+              </ul>
+            ) : <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Məlumat yoxdur</div>}
+          </div>
+
+          {/* Görüləcək işlər */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #dbeafe' }}>
+              › Görüləcək İşlər
+            </div>
+            {p.planned?.length ? (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {p.planned.map((d, i) => (
+                  <li key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#374151', padding: '5px 0', borderBottom: i < p.planned.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
+                    <span style={{ color: '#2563eb', flexShrink: 0 }}>›</span>{d}
+                  </li>
+                ))}
+              </ul>
+            ) : <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Məlumat yoxdur</div>}
+          </div>
+
+          {/* Screenshots */}
+          {p.screenshots?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff' }}>
+                📷 Şəkillər
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                {p.screenshots.map((ss, i) => (
+                  <img key={i} src={ss} alt="" style={{ width: '100%', aspectRatio: '16/10', objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}/>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Edit Modal ───────────────────────────────────────────
+function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
+  const IS = { width:'100%', padding:'8px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:14, fontFamily:'Arial,sans-serif', outline:'none', background:'#fff' }
+  const ST = (color, label) => (
+    <div style={{ fontSize:12, fontWeight:700, color, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8, paddingBottom:5, borderBottom:`2px solid ${color}22` }}>{label}</div>
+  )
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.7)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'24px', overflow:'auto', backdropFilter:'blur(4px)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:820, boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:'1px solid #f1f3f9' }}>
+          <div style={{ fontSize:17, fontWeight:700, color:'#0f172a' }}>✏️ Redaktə — {data.period}</div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button className="btn btn-success btn-sm" onClick={onSave}><Save size={13}/> Saxla</button>
+            <button className="btn btn-primary btn-sm" onClick={onPublish} disabled={busy}><Send size={13}/> Yayımla</button>
+            <button onClick={onClose} style={{ width:32, height:32, borderRadius:'50%', background:'#f4f6fb', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, color:'#6b7280' }}>✕</button>
+          </div>
+        </div>
+
+        {/* Platforms */}
+        <div style={{ padding:'20px 24px', maxHeight:'75vh', overflowY:'auto' }}>
+          {data.platforms.map(p => {
+            const acc = p.color || '#6366f1'
+            return (
+              <div key={p.id} style={{ border:`1.5px solid ${acc}30`, borderRadius:14, marginBottom:16, overflow:'hidden' }}>
+                <div style={{ background:`${acc}0a`, padding:'12px 16px', borderBottom:`1px solid ${acc}20`, display:'flex', alignItems:'center', gap:10 }}>
+                  {p.logo_url && <img src={p.logo_url} alt="" style={{ height:22, maxWidth:80, objectFit:'contain' }}/>}
+                  <span style={{ fontWeight:700, color:'#0f172a', fontSize:15 }}>{p.name}</span>
+                </div>
+                <div style={{ padding:'16px', display:'flex', flexDirection:'column', gap:16 }}>
+
+                  {/* Görülən */}
+                  <div>
+                    {ST('#059669', '✓ Görülən İşlər')}
+                    {(p.done || []).map((item, i) => (
+                      <div key={i} style={{ display:'flex', gap:6, marginBottom:6 }}>
+                        <input style={{...IS, flex:1}} value={item}
+                          onChange={e => { const n=[...(p.done||[])]; n[i]=e.target.value; onChange(p.id,'done',n) }}/>
+                        <button onClick={() => onChange(p.id,'done',(p.done||[]).filter((_,j)=>j!==i))}
+                          style={{ padding:'0 10px', border:'1.5px solid #fecaca', borderRadius:8, background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:14 }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => onChange(p.id,'done',[...(p.done||[]),''])}
+                      style={{ fontSize:13, color:'#059669', background:'rgba(5,150,105,0.06)', border:'1.5px solid rgba(5,150,105,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ Əlavə et</button>
+                  </div>
+
+                  {/* Görüləcək */}
+                  <div>
+                    {ST('#2563eb', '› Görüləcək İşlər')}
+                    {(p.planned || []).map((item, i) => (
+                      <div key={i} style={{ display:'flex', gap:6, marginBottom:6 }}>
+                        <input style={{...IS, flex:1}} value={item}
+                          onChange={e => { const n=[...(p.planned||[])]; n[i]=e.target.value; onChange(p.id,'planned',n) }}/>
+                        <button onClick={() => onChange(p.id,'planned',(p.planned||[]).filter((_,j)=>j!==i))}
+                          style={{ padding:'0 10px', border:'1.5px solid #fecaca', borderRadius:8, background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:14 }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => onChange(p.id,'planned',[...(p.planned||[]),''])}
+                      style={{ fontSize:13, color:'#2563eb', background:'rgba(37,99,235,0.06)', border:'1.5px solid rgba(37,99,235,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ Əlavə et</button>
+                  </div>
+
+                  {/* KPI */}
+                  <div>
+                    {ST('#6366f1', '📊 KPI / Statistika')}
+                    {(p.stats || []).map((s, i) => (
+                      <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:6, marginBottom:6 }}>
+                        <input style={IS} value={s.l||''} placeholder="Göstərici"
+                          onChange={e => { const n=[...(p.stats||[])]; n[i]={...n[i],l:e.target.value}; onChange(p.id,'stats',n) }}/>
+                        <input style={IS} value={s.v||''} placeholder="Dəyər"
+                          onChange={e => { const n=[...(p.stats||[])]; n[i]={...n[i],v:e.target.value}; onChange(p.id,'stats',n) }}/>
+                        <button onClick={() => onChange(p.id,'stats',(p.stats||[]).filter((_,j)=>j!==i))}
+                          style={{ padding:'0 10px', border:'1.5px solid #fecaca', borderRadius:8, background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:14 }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => onChange(p.id,'stats',[...(p.stats||[]),{v:'',l:''}])}
+                      style={{ fontSize:13, color:'#6366f1', background:'rgba(99,102,241,0.06)', border:'1.5px solid rgba(99,102,241,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ KPI əlavə et</button>
+                  </div>
+
+                  {/* Qeyd */}
+                  <div>
+                    {ST('#d97706', '⚠️ Qeyd / Problem')}
+                    <textarea style={{...IS, resize:'vertical', minHeight:54}} value={p.issue||''}
+                      onChange={e => onChange(p.id,'issue',e.target.value)} placeholder="Mövcud problem..."/>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
 }
