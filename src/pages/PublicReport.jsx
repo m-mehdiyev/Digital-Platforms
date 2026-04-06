@@ -169,7 +169,15 @@ function toggleSnap() {
             slides.forEach((s,i)=>{ const r=s.getBoundingClientRect(); if(r.top>=-50&&r.top<window.innerHeight/2) setCurrentSlide(i) })
           }}>
           {platforms.map((p,idx)=>(
-            <PlatformSlide key={p.id} p={p} idx={idx} total={platforms.length} goToSlide={goToSlide} currentSlide={currentSlide} />
+          <PlatformSlide
+  key={p.id}
+  p={p}
+  idx={idx}
+  total={platforms.length}
+  goToSlide={goToSlide}
+  currentSlide={currentSlide}
+  snapOn={snapOn}
+/>
           ))}
         </div>
 
@@ -416,20 +424,36 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide, snapOn }) {
 
   return (
     <>
-      <div className="pslide" id={p.id} data-idx={idx}
-       style={{
-  minHeight: snapOn ? '100%' : 'auto',
-  scrollSnapAlign: snapOn ? 'start' : 'none',
-  scrollSnapStop: snapOn ? 'always' : 'normal',
-  display:'flex',
-  flexDirection:'column',
-  justifyContent:'center',
-  padding:'16px 4vw 44px',
-  position:'relative',
-  background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',
-  overflowY:'auto'
-}}
-        <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.06,pointerEvents:'none' }}/>
+    <div
+  className="pslide"
+  id={p.id}
+  data-idx={idx}
+  style={{
+    minHeight: snapOn ? '100%' : 'auto',
+    scrollSnapAlign: snapOn ? 'start' : 'none',
+    scrollSnapStop: snapOn ? 'always' : 'normal',
+    display:'flex',
+    flexDirection:'column',
+    justifyContent:'center',
+    padding:'16px 4vw 44px',
+    position:'relative',
+    background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',
+    overflowY:'auto'
+  }}
+>
+  <div
+    style={{
+      position:'absolute',
+      top:-150,
+      right:-150,
+      width:500,
+      height:500,
+      borderRadius:'50%',
+      background:`radial-gradient(circle,${acc},transparent 70%)`,
+      opacity:.06,
+      pointerEvents:'none'
+    }}
+  />
 
         <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:11 }}>
           {/* Header */}
