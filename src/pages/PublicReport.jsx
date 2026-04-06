@@ -138,7 +138,7 @@ export default function PublicReport() {
 
             {/* Sağ: IRIA loqosu */}
             <div style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 40px' }}>
-              <img src={`data:image/png;base64,${IRIA_LOGO}`} alt="IRIA"
+              <img src={`data:image/jpeg;base64,${IRIA_LOGO}`} alt="IRIA"
                 style={{ height:120, maxWidth:320, objectFit:'contain', filter:'brightness(0) invert(1)', opacity:.9 }}/>
             </div>
 
