@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Plus, Trash2, Upload, X, CheckCircle } from 'lucide-react'
+import { Plus, Trash2, Upload, X, CheckCircle, Flag } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
+
+const MONTHS = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt','Noy','Dek']
+const emptyPlan = () => ({ text: '', start_month: '', end_month: '', is_milestone: false, milestone_label: '' })
 
 export default function ReportInput({ platformId, isSuperAdmin }) {
   const [platforms, setPlatforms]         = useState([])
   const [selectedPlatformId, setSelPlat]  = useState(platformId || '')
   const [period, setPeriod]               = useState('')
   const [doneItems, setDoneItems]         = useState([''])
-  const [planItems, setPlanItems]         = useState([''])   // tək siyahı
+  const [planItems, setPlanItems]         = useState([emptyPlan()])
   const [kpis, setKpis]                   = useState([{ label: '', value: '' }])
   const [screenshots, setScreenshots]     = useState([])
   const [screenshotFiles, setSsFiles]     = useState([])
@@ -19,7 +22,6 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
 
   useEffect(() => { fetchPlatforms() }, [])
 
-  // Debounce: period yazılıb 700ms dayandıqdan sonra yüklə
   useEffect(() => {
     if (!selectedPlatformId || !period) return
     const t = setTimeout(() => fetchExisting(), 700)
@@ -45,15 +47,21 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
     if (data) {
       setExistingId(data.id)
       setDoneItems(data.completed_items?.sort((a,b)=>a.order_index-b.order_index).map(i=>i.text) || [''])
-      const pl = data.planned_items?.sort((a,b)=>a.order_index-b.order_index).map(i=>i.text)
-      setPlanItems(pl?.length ? pl : [''])
+      const pl = data.planned_items?.sort((a,b)=>a.order_index-b.order_index).map(i => ({
+        text: i.text || '',
+        start_month: i.start_month ?? '',
+        end_month: i.end_month ?? '',
+        is_milestone: i.is_milestone || false,
+        milestone_label: i.milestone_label || '',
+      }))
+      setPlanItems(pl?.length ? pl : [emptyPlan()])
       setKpis(data.statistics?.sort((a,b)=>a.order_index-b.order_index).map(s=>({ label:s.label, value:s.value })) || [{ label:'', value:'' }])
       setScreenshots(data.attachments?.map(a=>({ url:a.file_url, name:a.file_name })) || [])
       setIssue(data.issue_text || '')
       toast('Mövcud məlumatlar yükləndi', { icon: 'ℹ️' })
     } else {
       setExistingId(null)
-      setDoneItems(['']); setPlanItems(['']); setKpis([{ label:'', value:'' }])
+      setDoneItems(['']); setPlanItems([emptyPlan()]); setKpis([{ label:'', value:'' }])
       setScreenshots([]); setSsFiles([]); setIssue('')
     }
   }
@@ -63,6 +71,10 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
     setScreenshots(p => [...p, ...files.map(f => ({ url: URL.createObjectURL(f), name: f.name, isNew: true, file: f }))])
   }, [])
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] } })
+
+  function updatePlan(i, field, val) {
+    const n = [...planItems]; n[i] = { ...n[i], [field]: val }; setPlanItems(n)
+  }
 
   async function save() {
     if (!selectedPlatformId) return toast.error('Platforma seçin')
@@ -91,10 +103,16 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         done.map((text, idx) => ({ period_id: pid, text, order_index: idx }))
       )
 
-      const plans = planItems.filter(t => t.trim())
+      const plans = planItems.filter(t => t.text.trim())
       if (plans.length) {
         const { error } = await supabase.from('planned_items').insert(
-          plans.map((text, idx) => ({ period_id: pid, text, plan_type: 'month', order_index: idx }))
+          plans.map((item, idx) => ({
+            period_id: pid, text: item.text, plan_type: 'month', order_index: idx,
+            start_month: item.start_month !== '' ? parseInt(item.start_month) : null,
+            end_month: item.end_month !== '' ? parseInt(item.end_month) : null,
+            is_milestone: item.is_milestone || false,
+            milestone_label: item.milestone_label || null,
+          }))
         )
         if (error) throw new Error('Planlar: ' + error.message)
       }
@@ -116,9 +134,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
       setScreenshots(p => p.map(s => ({ ...s, isNew: false, file: undefined })))
       setSsFiles([])
       toast.success('✅ Məlumatlar saxlanıldı!')
-    } catch (e) {
-      toast.error('Xəta: ' + e.message)
-    }
+    } catch (e) { toast.error('Xəta: ' + e.message) }
     setSaving(false)
   }
 
@@ -161,7 +177,6 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Görülən işlər */}
           <div className="card">
             <div className="card-title" style={{ color: '#059669' }}>✓ Görülən İşlər</div>
             {doneItems.map((item, i) => (
@@ -178,7 +193,6 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
             </button>
           </div>
 
-          {/* KPI */}
           <div className="card">
             <div className="card-title" style={{ color: '#6366f1' }}>📊 Statistika / KPI</div>
             {kpis.map((kpi, i) => (
@@ -197,7 +211,6 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
             </button>
           </div>
 
-          {/* Qeyd */}
           <div className="card">
             <div className="card-title" style={{ color: '#d97706' }}>⚠️ Çətinliklər / Qeydlər</div>
             <textarea className="form-textarea" value={issue} onChange={e => setIssue(e.target.value)} placeholder="Mövcud problem..."/>
@@ -205,24 +218,64 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Görüləcək işlər — tək siyahı */}
+
           <div className="card">
             <div className="card-title" style={{ color: '#2563eb' }}>› Görüləcək İşlər</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>
+              Ay seçsəniz Gantt cədvəlində görünəcək. Seçməsəniz siyahı kimi qalır.
+            </div>
+
             {planItems.map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                <input className="form-input" style={{ flex: 1 }} value={item}
-                  onChange={e => { const n=[...planItems]; n[i]=e.target.value; setPlanItems(n) }}
-                  placeholder={`İş ${i+1}`}/>
-                {planItems.length > 1 &&
-                  <button className="btn btn-danger btn-sm" onClick={() => setPlanItems(planItems.filter((_,j)=>j!==i))}><Trash2 size={12}/></button>}
+              <div key={i} style={{ marginBottom: 10, padding: '10px 12px', background: 'rgba(37,99,235,0.03)', borderRadius: 10, border: '1px solid rgba(37,99,235,0.1)' }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  <input className="form-input" style={{ flex: 1 }} value={item.text}
+                    onChange={e => updatePlan(i, 'text', e.target.value)}
+                    placeholder={`İş ${i+1}`}/>
+                  {planItems.length > 1 &&
+                    <button className="btn btn-danger btn-sm" onClick={() => setPlanItems(planItems.filter((_,j)=>j!==i))}>
+                      <Trash2 size={12}/>
+                    </button>}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 3 }}>Başlanğıc ayı</div>
+                    <select className="form-select" style={{ fontSize: 13 }}
+                      value={item.start_month} onChange={e => updatePlan(i, 'start_month', e.target.value)}>
+                      <option value="">— Seçin</option>
+                      {MONTHS.map((m, mi) => <option key={mi+1} value={mi+1}>{m} ({mi+1})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 3 }}>Bitmə ayı</div>
+                    <select className="form-select" style={{ fontSize: 13 }}
+                      value={item.end_month} onChange={e => updatePlan(i, 'end_month', e.target.value)}>
+                      <option value="">— Seçin</option>
+                      {MONTHS.map((m, mi) => <option key={mi+1} value={mi+1}>{m} ({mi+1})</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={item.is_milestone}
+                    onChange={e => updatePlan(i, 'is_milestone', e.target.checked)}
+                    style={{ accentColor: '#D85A30', width: 14, height: 14 }}/>
+                  <Flag size={12} color="#D85A30"/> Milestone
+                </label>
+                {item.is_milestone && (
+                  <input className="form-input" style={{ marginTop: 6, fontSize: 12 }}
+                    value={item.milestone_label}
+                    onChange={e => updatePlan(i, 'milestone_label', e.target.value)}
+                    placeholder="Milestone adı (məs. v1.0, Beta...)"/>
+                )}
               </div>
             ))}
-            <button className="btn btn-secondary btn-sm" onClick={() => setPlanItems([...planItems,''])} style={{ marginTop: 4 }}>
+
+            <button className="btn btn-secondary btn-sm" onClick={() => setPlanItems([...planItems, emptyPlan()])} style={{ marginTop: 4 }}>
               <Plus size={12}/> Əlavə et
             </button>
           </div>
 
-          {/* Screenshots */}
           <div className="card">
             <div className="card-title" style={{ color: '#6366f1' }}>📷 Ekran Görüntüləri</div>
             {screenshots.length > 0 && (
