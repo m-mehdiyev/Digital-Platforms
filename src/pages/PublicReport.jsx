@@ -410,40 +410,36 @@ function GanttChart({ planned, acc }) {
 }
 function PlatformSlide({ p, idx, total, goToSlide }) {
   const [lightbox, setLightbox] = useState(null)
-  const done = p.done||[]
-  const rawPlanned = p.planned || [...(p.plan_month||[]), ...(p.plan_quarter||[]), ...(p.plan_year||[])]
+  const done = p.done || []
+  const rawPlanned = p.planned || [...(p.plan_month || []), ...(p.plan_quarter || []), ...(p.plan_year || [])]
   const plannedObjects = rawPlanned.map(i => typeof i === 'string' ? { text: i } : i)
-  const plannedTexts = plannedObjects.map(i => i.text||i)
+  const plannedTexts = plannedObjects.map(i => i.text || i)
   const hasGantt = plannedObjects.some(i => i.start_month)
-  const stats = p.stats||[], screenshots = p.screenshots||[]
-  const acc = p.color||'#6366f1'
+  const stats = p.stats || []
+  const screenshots = p.screenshots || []
+  const acc = p.color || '#6366f1'
   const [visible, setVisible] = useState(false)
-const cardRef = useRef(null)
+  const cardRef = useRef(null)
 
-useEffect(() => {
-  const el = cardRef.current
-  if (!el) return
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
 
- useEffect(() => {
-  const el = cardRef.current
-  if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.12 }
+    )
 
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      if (entry.isIntersecting) {
-        setVisible(true)
-        observer.disconnect()
-      }
-    },
-    { threshold: 0.12 }
-  )
+    observer.observe(el)
 
-  observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
-  return () => observer.disconnect()
-}, [])
-
-   
   return (
     <>
 <div
