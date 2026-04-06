@@ -91,26 +91,6 @@ export default function PublicReport() {
     setShowPicker(false)
   }
 
-  useEffect(() => {
-    function handleScroll() {
-      const cont = platRef.current
-      if (!cont) return
-
-      const slides = cont.querySelectorAll('.pslide')
-      slides.forEach((s, i) => {
-        const r = s.getBoundingClientRect()
-        if (r.top >= -120 && r.top < window.innerHeight / 2) {
-          setCurrentSlide(i)
-        }
-      })
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
-
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [report])
-
   return (
     <div style={{ position:'relative',minHeight:'100vh' }}>
       <div className="orbs"><div className="orb o1"/><div className="orb o2"/><div className="orb o3"/></div>
