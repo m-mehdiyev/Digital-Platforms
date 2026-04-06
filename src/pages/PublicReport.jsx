@@ -99,8 +99,22 @@ export default function PublicReport() {
       <ProgressBar />
       <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} className="pub-sidebar"/>
       
-      <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(2
-      4px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
+     <nav className="pub-nav" style={{
+  position:'fixed',
+  top:3,
+  left:72,
+  right:0,
+  zIndex:600,
+  display:'flex',
+  alignItems:'center',
+  justifyContent:'space-between',
+  padding:'0 28px',
+  height:64,
+  background:'rgba(255,255,255,0.88)',
+  backdropFilter:'blur(24px)',
+  borderBottom:'1px solid rgba(99,102,241,0.1)',
+  boxShadow:'0 2px 24px rgba(60,60,120,0.08)'
+}}>
         <div style={{ fontSize:15,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
           <button onClick={toggleSnap} style={{ display:'flex',alignItems:'center',gap:6,background:snapOn?'rgba(99,102,241,0.08)':'rgba(0,0,0,0.04)',border:`1.5px solid ${snapOn?'rgba(99,102,241,0.2)':'#e5e7eb'}`,borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:snapOn?'#6366f1':'#9ca3af',cursor:'pointer',transition:'all .22s' }}>
