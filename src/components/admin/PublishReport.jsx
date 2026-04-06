@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Send, Eye, Edit2, X, Plus, Trash2, Save } from 'lucide-react'
+import { Send, Eye, Edit2, X, Plus, Trash2, Save, Flag } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+const MONTHS = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt','Noy','Dek']
 
 // ─── DB-dən hesabat məlumatlarını topla ──────────────────
 async function gatherReportData(period, platforms) {
@@ -17,7 +19,13 @@ async function gatherReportData(period, platforms) {
       id: plat.id, name: plat.name, tagline: plat.tagline,
       color: plat.color, logo_url: plat.logo_url,
       done: rep?.completed_items?.sort((a,b)=>a.order_index-b.order_index).map(i=>i.text) || [],
-      planned: rep?.planned_items?.sort((a,b)=>a.order_index-b.order_index).map(i=>i.text) || [],
+      planned: rep?.planned_items?.sort((a,b)=>a.order_index-b.order_index).map(i => ({
+        text: i.text,
+        start_month: i.start_month ?? null,
+        end_month: i.end_month ?? null,
+        is_milestone: i.is_milestone || false,
+        milestone_label: i.milestone_label || '',
+      })) || [],
       stats: rep?.statistics?.sort((a,b)=>a.order_index-b.order_index).map(s=>({ v:s.value, l:s.label })) || [],
       screenshots: rep?.attachments?.filter(a=>a.file_type==='screenshot').map(a=>a.file_url) || [],
       issue: rep?.issue_text || '',
@@ -34,8 +42,8 @@ export default function PublishReport() {
   const [preview, setPreview]     = useState(null)
   const [busy, setBusy]           = useState(false)
   const [loading, setLoading]     = useState(true)
-  const [editing, setEditing]     = useState(false)  // edit modal
-  const [editData, setEditData]   = useState(null)   // kopyası
+  const [editing, setEditing]     = useState(false)
+  const [editData, setEditData]   = useState(null)
 
   useEffect(() => { fetchData() }, [])
 
@@ -78,7 +86,7 @@ export default function PublishReport() {
   }
 
   function openEdit() {
-    setEditData(JSON.parse(JSON.stringify(preview))) // dərin kopiya
+    setEditData(JSON.parse(JSON.stringify(preview)))
     setEditing(true)
   }
 
@@ -116,7 +124,6 @@ export default function PublishReport() {
         )}
       </div>
 
-      {/* Dövr seçici */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
@@ -132,10 +139,8 @@ export default function PublishReport() {
         </div>
       </div>
 
-      {/* Önizləmə */}
       {preview && (
         <>
-          {/* Xülasə cədvəl */}
           <div className="card" style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div className="card-title" style={{ marginBottom: 0 }}>Xülasə — {preview.period}</div>
@@ -166,9 +171,8 @@ export default function PublishReport() {
             </table>
           </div>
 
-          {/* Tam detallı önizləmə — scroll edilə bilən */}
           <div className="card">
-            <div className="card-title">📋 Tam Önizləmə (yayımlanacaq məlumatlar)</div>
+            <div className="card-title">📋 Tam Önizləmə</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               {preview.platforms.map((p, idx) => (
                 <PlatformPreviewCard key={p.id} p={p} idx={idx}/>
@@ -178,7 +182,6 @@ export default function PublishReport() {
         </>
       )}
 
-      {/* Edit Modal */}
       {editing && editData && (
         <EditModal
           data={editData}
@@ -193,19 +196,76 @@ export default function PublishReport() {
   )
 }
 
+// ─── Gantt mini komponent (preview + edit üçün) ──────────
+function MiniGantt({ planned, acc }) {
+  const hasGantt = planned?.some(p => p.start_month)
+  if (!hasGantt) return null
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: acc, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+        📅 İş Planı — Gantt
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+          <thead>
+            <tr>
+              <th style={{ width: 160, textAlign: 'left', fontSize: 10, color: '#9ca3af', fontWeight: 500, paddingBottom: 4 }}></th>
+              {MONTHS.map((m, i) => (
+                <th key={i} style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500, textAlign: 'center', paddingBottom: 4, minWidth: 36 }}>{m}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {planned.filter(p => p.start_month).map((item, i) => {
+              const s = parseInt(item.start_month) - 1
+              const e = parseInt(item.end_month || item.start_month) - 1
+              return (
+                <tr key={i}>
+                  <td style={{ fontSize: 11, color: '#374151', paddingRight: 8, paddingBottom: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.text}
+                  </td>
+                  {MONTHS.map((_, mi) => {
+                    const inRange = mi >= s && mi <= e
+                    const isMsEnd = item.is_milestone && mi === e
+                    return (
+                      <td key={mi} style={{ padding: '2px 1px', height: 22, position: 'relative' }}>
+                        <div style={{ borderRight: '1px solid #f1f3f9', height: '100%', position: 'absolute', right: 0, top: 0 }}/>
+                        {inRange && !isMsEnd && (
+                          <div style={{ height: 14, borderRadius: 3, background: '#888780', opacity: .65, margin: '4px 1px' }}/>
+                        )}
+                        {isMsEnd && (
+                          <div title={item.milestone_label} style={{ width: 10, height: 10, background: '#D85A30', transform: 'rotate(45deg)', margin: '6px auto' }}/>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <div style={{ width: 18, height: 10, borderRadius: 2, background: '#888780', opacity: .65 }}/> Planlaşdırılan
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <div style={{ width: 10, height: 10, background: '#D85A30', transform: 'rotate(45deg)' }}/> Milestone
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Tam Önizləmə Kartı ───────────────────────────────────
 function PlatformPreviewCard({ p, idx }) {
   const acc = p.color || '#6366f1'
   const isEven = idx % 2 === 0
+  const plannedTexts = p.planned?.map(i => typeof i === 'string' ? i : i.text) || []
 
   return (
-    <div style={{
-      border: `1.5px solid ${acc}30`,
-      borderRadius: 16,
-      overflow: 'hidden',
-      background: isEven ? 'rgba(255,255,255,0.8)' : 'rgba(248,250,255,0.8)',
-    }}>
-      {/* Header */}
+    <div style={{ border: `1.5px solid ${acc}30`, borderRadius: 16, overflow: 'hidden', background: isEven ? 'rgba(255,255,255,0.8)' : 'rgba(248,250,255,0.8)' }}>
       <div style={{ background: `linear-gradient(135deg, ${acc}12, ${acc}06)`, padding: '16px 20px', borderBottom: `1px solid ${acc}20`, display: 'flex', alignItems: 'center', gap: 14 }}>
         {p.logo_url && <img src={p.logo_url} alt="" style={{ height: 36, maxWidth: 140, objectFit: 'contain', objectPosition: 'left' }}/>}
         <div>
@@ -220,7 +280,6 @@ function PlatformPreviewCard({ p, idx }) {
       </div>
 
       <div style={{ padding: '20px' }}>
-        {/* KPI stats */}
         {p.stats?.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(p.stats.length, 4)}, 1fr)`, gap: 10, marginBottom: 20 }}>
             {p.stats.map((s, i) => (
@@ -233,7 +292,6 @@ function PlatformPreviewCard({ p, idx }) {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: p.screenshots?.length ? '1fr 1fr 240px' : '1fr 1fr', gap: 16 }}>
-          {/* Görülən işlər */}
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #d1fae5' }}>
               ✓ Görülən İşlər
@@ -249,15 +307,14 @@ function PlatformPreviewCard({ p, idx }) {
             ) : <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Məlumat yoxdur</div>}
           </div>
 
-          {/* Görüləcək işlər */}
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #dbeafe' }}>
               › Görüləcək İşlər
             </div>
-            {p.planned?.length ? (
+            {plannedTexts.length ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                {p.planned.map((d, i) => (
-                  <li key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#374151', padding: '5px 0', borderBottom: i < p.planned.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
+                {plannedTexts.map((d, i) => (
+                  <li key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#374151', padding: '5px 0', borderBottom: i < plannedTexts.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
                     <span style={{ color: '#2563eb', flexShrink: 0 }}>›</span>{d}
                   </li>
                 ))}
@@ -265,7 +322,6 @@ function PlatformPreviewCard({ p, idx }) {
             ) : <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Məlumat yoxdur</div>}
           </div>
 
-          {/* Screenshots */}
           {p.screenshots?.length > 0 && (
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff' }}>
@@ -279,6 +335,9 @@ function PlatformPreviewCard({ p, idx }) {
             </div>
           )}
         </div>
+
+        {/* Gantt — yalnız ay məlumatı olan planned item-lər varsa */}
+        <MiniGantt planned={p.planned} acc={acc} />
       </div>
     </div>
   )
@@ -287,15 +346,31 @@ function PlatformPreviewCard({ p, idx }) {
 // ─── Edit Modal ───────────────────────────────────────────
 function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
   const IS = { width:'100%', padding:'8px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:14, fontFamily:'Arial,sans-serif', outline:'none', background:'#fff' }
+  const SS = { padding:'7px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontFamily:'Arial,sans-serif', outline:'none', background:'#fff', width:'100%' }
   const ST = (color, label) => (
     <div style={{ fontSize:12, fontWeight:700, color, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8, paddingBottom:5, borderBottom:`2px solid ${color}22` }}>{label}</div>
   )
 
+  function updatePlanned(platId, idx, field, val) {
+    const plat = data.platforms.find(p => p.id === platId)
+    const updated = plat.planned.map((item, i) => i === idx ? { ...item, [field]: val } : item)
+    onChange(platId, 'planned', updated)
+  }
+
+  function addPlanned(platId) {
+    const plat = data.platforms.find(p => p.id === platId)
+    onChange(platId, 'planned', [...(plat.planned || []), { text: '', start_month: null, end_month: null, is_milestone: false, milestone_label: '' }])
+  }
+
+  function removePlanned(platId, idx) {
+    const plat = data.platforms.find(p => p.id === platId)
+    onChange(platId, 'planned', plat.planned.filter((_, i) => i !== idx))
+  }
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.7)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'24px', overflow:'auto', backdropFilter:'blur(4px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:820, boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
-        {/* Header */}
+      <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:860, boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:'1px solid #f1f3f9' }}>
           <div style={{ fontSize:17, fontWeight:700, color:'#0f172a' }}>✏️ Redaktə — {data.period}</div>
           <div style={{ display:'flex', gap:8 }}>
@@ -305,7 +380,6 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
           </div>
         </div>
 
-        {/* Platforms */}
         <div style={{ padding:'20px 24px', maxHeight:'75vh', overflowY:'auto' }}>
           {data.platforms.map(p => {
             const acc = p.color || '#6366f1'
@@ -332,18 +406,49 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
                       style={{ fontSize:13, color:'#059669', background:'rgba(5,150,105,0.06)', border:'1.5px solid rgba(5,150,105,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ Əlavə et</button>
                   </div>
 
-                  {/* Görüləcək */}
+                  {/* Görüləcək — ay seçici ilə */}
                   <div>
                     {ST('#2563eb', '› Görüləcək İşlər')}
                     {(p.planned || []).map((item, i) => (
-                      <div key={i} style={{ display:'flex', gap:6, marginBottom:6 }}>
-                        <input style={{...IS, flex:1}} value={item}
-                          onChange={e => { const n=[...(p.planned||[])]; n[i]=e.target.value; onChange(p.id,'planned',n) }}/>
-                        <button onClick={() => onChange(p.id,'planned',(p.planned||[]).filter((_,j)=>j!==i))}
-                          style={{ padding:'0 10px', border:'1.5px solid #fecaca', borderRadius:8, background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:14 }}>✕</button>
+                      <div key={i} style={{ marginBottom:10, padding:'10px 12px', background:'rgba(37,99,235,0.03)', borderRadius:10, border:'1px solid rgba(37,99,235,0.1)' }}>
+                        <div style={{ display:'flex', gap:6, marginBottom:8 }}>
+                          <input style={{...IS, flex:1}} value={item.text || ''}
+                            onChange={e => updatePlanned(p.id, i, 'text', e.target.value)}/>
+                          <button onClick={() => removePlanned(p.id, i)}
+                            style={{ padding:'0 10px', border:'1.5px solid #fecaca', borderRadius:8, background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:14 }}>✕</button>
+                        </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                          <div>
+                            <div style={{ fontSize:11, color:'#6b7280', marginBottom:3 }}>Başlanğıc ayı</div>
+                            <select style={SS} value={item.start_month || ''}
+                              onChange={e => updatePlanned(p.id, i, 'start_month', e.target.value ? parseInt(e.target.value) : null)}>
+                              <option value="">— Seçin</option>
+                              {MONTHS.map((m, mi) => <option key={mi+1} value={mi+1}>{m} ({mi+1})</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <div style={{ fontSize:11, color:'#6b7280', marginBottom:3 }}>Bitmə ayı</div>
+                            <select style={SS} value={item.end_month || ''}
+                              onChange={e => updatePlanned(p.id, i, 'end_month', e.target.value ? parseInt(e.target.value) : null)}>
+                              <option value="">— Seçin</option>
+                              {MONTHS.map((m, mi) => <option key={mi+1} value={mi+1}>{m} ({mi+1})</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'#6b7280', cursor:'pointer' }}>
+                          <input type="checkbox" checked={item.is_milestone || false}
+                            onChange={e => updatePlanned(p.id, i, 'is_milestone', e.target.checked)}
+                            style={{ accentColor:'#D85A30', width:14, height:14 }}/>
+                          <Flag size={12} color="#D85A30"/> Milestone
+                        </label>
+                        {item.is_milestone && (
+                          <input style={{...IS, marginTop:6, fontSize:12}} value={item.milestone_label || ''}
+                            onChange={e => updatePlanned(p.id, i, 'milestone_label', e.target.value)}
+                            placeholder="Milestone adı (məs. v1.0, Beta...)"/>
+                        )}
                       </div>
                     ))}
-                    <button onClick={() => onChange(p.id,'planned',[...(p.planned||[]),''])}
+                    <button onClick={() => addPlanned(p.id)}
                       style={{ fontSize:13, color:'#2563eb', background:'rgba(37,99,235,0.06)', border:'1.5px solid rgba(37,99,235,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ Əlavə et</button>
                   </div>
 
