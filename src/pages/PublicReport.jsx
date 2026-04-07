@@ -14,24 +14,27 @@ export default function PublicReport() {
 
   useEffect(() => { fetchReports() }, [])
 
-  useEffect(() => {
- function handleScroll() {
-  if (isAutoScrolling.current) return
+useEffect(() => {
+  function handleScroll() {
+    if (isAutoScrolling.current) return
 
-  const cont = platRef.current
-  if (!cont) return
+    const cont = platRef.current
+    if (!cont) return
 
-  const slides = cont.querySelectorAll('.pslide')
-  slides.forEach((s, i) => {
-    const r = s.getBoundingClientRect()
-    if (r.top >= -80 && r.top < window.innerHeight * 0.45) {
-      setCurrentSlide(i)
-    }
-  })
-}
+    const slides = cont.querySelectorAll('.pslide')
+    slides.forEach((s, i) => {
+      const r = s.getBoundingClientRect()
+      if (r.top >= -80 && r.top < window.innerHeight * 0.45) {
+        setCurrentSlide(i)
+      }
+    })
+  }
 
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll()
+
+  return () => window.removeEventListener('scroll', handleScroll)
+}, [report])
 
     return () => window.removeEventListener('scroll', handleScroll)
   }, [report])
@@ -77,7 +80,6 @@ function goToSlide(idx) {
   const y = target.getBoundingClientRect().top + window.scrollY - navOffset
 
   isAutoScrolling.current = true
-  setCurrentSlide(idx)
 
   window.scrollTo({
     top: y,
@@ -85,8 +87,9 @@ function goToSlide(idx) {
   })
 
   setTimeout(() => {
+    setCurrentSlide(idx)
     isAutoScrolling.current = false
-  }, 900)
+  }, 700)
 }
   
 
