@@ -7,11 +7,34 @@ export default function PublicReport() {
   const [report, setReport]             = useState(null)
   const [loading, setLoading]           = useState(true)
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [snapOn, setSnapOn]             = useState(true)
   const [showPicker, setShowPicker]     = useState(false)
   const platRef = useRef(null)
   const isAutoScrolling = useRef(false)
 
   useEffect(() => { fetchReports() }, [])
+
+useEffect(() => {
+  function handleScroll() {
+    if (isAutoScrolling.current) return
+
+    const cont = platRef.current
+    if (!cont) return
+
+    const slides = cont.querySelectorAll('.pslide')
+    slides.forEach((s, i) => {
+      const r = s.getBoundingClientRect()
+      if (r.top >= -80 && r.top < window.innerHeight * 0.45) {
+        setCurrentSlide(i)
+      }
+    })
+  }
+
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll()
+
+  return () => window.removeEventListener('scroll', handleScroll)
+}, [report])
 
   async function fetchReports() {
     setLoading(true)
@@ -42,22 +65,37 @@ export default function PublicReport() {
   const platforms = rd?.platforms || []
   const period = rd?.period || report.period_label
 
-  function goToSlide(idx) {
-    const slides = document.querySelectorAll('.pslide')
-    const target = slides[idx]
-    if (!target) return
-    const navOffset = 76
-    const y = target.getBoundingClientRect().top + window.scrollY - navOffset
-    isAutoScrolling.current = true
-    window.scrollTo({ top: y, behavior: 'smooth' })
-    setTimeout(() => {
-      setCurrentSlide(idx)
-      isAutoScrolling.current = false
-    }, 800)
-  }
+function goToSlide(idx) {
+  const cont = platRef.current
+  if (!cont) return
 
-  function handlePrint() {
-    window.print()
+  const slides = cont.querySelectorAll('.pslide')
+  const target = slides[idx]
+  if (!target) return
+
+  const navOffset = 76
+  const y = target.getBoundingClientRect().top + window.scrollY - navOffset
+
+  isAutoScrolling.current = true
+
+  window.scrollTo({
+    top: y,
+    behavior: 'smooth'
+  })
+
+  setTimeout(() => {
+    setCurrentSlide(idx)
+    isAutoScrolling.current = false
+  }, 700)
+}
+  
+
+  function toggleSnap() {
+    setSnapOn(prev => {
+      const next = !prev
+      if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y proximity' : 'none'
+      return next
+    })
   }
 
   function switchReport(r) {
@@ -72,12 +110,28 @@ export default function PublicReport() {
       <CursorGlow />
       <ProgressBar />
       <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} className="pub-sidebar"/>
-
-      <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
+      
+     <nav className="pub-nav" style={{
+  position:'fixed',
+  top:3,
+  left:72,
+  right:0,
+  zIndex:600,
+  display:'flex',
+  alignItems:'center',
+  justifyContent:'space-between',
+  padding:'0 28px',
+  height:64,
+  background:'rgba(255,255,255,0.88)',
+  backdropFilter:'blur(24px)',
+  borderBottom:'1px solid rgba(99,102,241,0.1)',
+  boxShadow:'0 2px 24px rgba(60,60,120,0.08)'
+}}>
         <div style={{ fontSize:15,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
-          <button onClick={handlePrint} style={{ display:'flex',alignItems:'center',gap:6,background:'rgba(99,102,241,0.08)',border:'1.5px solid rgba(99,102,241,0.2)',borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:'#6366f1',cursor:'pointer',transition:'all .22s' }}>
-            🖨️ PDF / Çap
+          <button onClick={toggleSnap} style={{ display:'flex',alignItems:'center',gap:6,background:snapOn?'rgba(99,102,241,0.08)':'rgba(0,0,0,0.04)',border:`1.5px solid ${snapOn?'rgba(99,102,241,0.2)':'#e5e7eb'}`,borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:snapOn?'#6366f1':'#9ca3af',cursor:'pointer',transition:'all .22s' }}>
+            <span style={{ width:8,height:8,borderRadius:'50%',background:snapOn?'#6366f1':'#d1d5db',flexShrink:0 }}/>
+            Snap: {snapOn?'ON':'OFF'}
           </button>
 
           {/* Dövr seçici */}
@@ -157,16 +211,24 @@ export default function PublicReport() {
         </section>
 
         {/* PLATFORM SNAP VIEWER */}
-        <div id="platforms" ref={platRef}
-          style={{ height:'calc(100vh - 67px)',overflowY:'scroll',scrollSnapType:'y mandatory',position:'relative' }}
-          onScroll={e=>{
-            const slides=e.target.querySelectorAll('.pslide')
-            slides.forEach((s,i)=>{ const r=s.getBoundingClientRect(); if(r.top>=-50&&r.top<window.innerHeight/2) setCurrentSlide(i) })
-          }}>
-          {platforms.map((p,idx)=>(
-            <PlatformSlide key={p.id} p={p} idx={idx} total={platforms.length} goToSlide={goToSlide} currentSlide={currentSlide} />
-          ))}
-        </div>
+<div
+  id="platforms"
+  ref={platRef}
+  style={{
+    position: 'relative',
+    padding: '24px 6vw 56px'
+  }}
+>
+  {platforms.map((p,idx)=>(
+    <PlatformSlide
+      key={p.id}
+      p={p}
+      idx={idx}
+      total={platforms.length}
+      goToSlide={goToSlide}
+    />
+  ))}
+</div>
 
         <footer style={{ background:'linear-gradient(135deg,#0f0c29,#1e1b4b)',color:'rgba(255,255,255,.6)',padding:'40px 6vw',display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:2 }}>
           <div style={{ fontSize:14,fontWeight:700,color:'rgba(255,255,255,0.5)' }}>IRIA</div>
@@ -181,21 +243,7 @@ export default function PublicReport() {
         @keyframes lbIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
         @keyframes imgIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
 
-        /* ── PRINT ── */
-        @media print {
-          .pub-sidebar { display: none !important; }
-          .pub-nav { display: none !important; }
-          #pub-cg { display: none !important; }
-          #pub-prog { display: none !important; }
-          .pub-content { margin-left: 0 !important; }
-          .orbs { display: none !important; }
-          .pslide { page-break-before: always; break-before: page; box-shadow: none !important; border: 1px solid #e5e7eb !important; }
-          .pslide:first-child { page-break-before: avoid; break-before: avoid; }
-          section { page-break-before: always; break-before: page; }
-          section:first-of-type { page-break-before: avoid; break-before: avoid; }
-          footer { page-break-before: always; break-before: page; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        }
+        /* ── MOBILE ── */
         @media (max-width: 640px) {
           /* Sidebar gizlə */
           .pub-sidebar { display: none !important; }
@@ -223,7 +271,7 @@ function OvCard({ p, idx, goToSlide }) {
   const [hov, setHov] = useState(false)
   return (
     <button
-      onClick={()=>{ document.getElementById('platforms')?.scrollIntoView({behavior:'smooth',block:'start'}); setTimeout(()=>goToSlide(idx),350) }}
+      onClick={() => goToSlide(idx)}
       onMouseEnter={()=>setHov(true)}
       onMouseLeave={()=>setHov(false)}
       className="glass-card"
@@ -247,39 +295,143 @@ const MONTHS_AZ = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt'
 function GanttChart({ planned, acc }) {
   const items = planned?.filter(i => i && typeof i === 'object' && i.start_month) || []
   if (!items.length) return null
+
   return (
     <div className="glass-card" style={{ padding:'14px 18px', marginTop:0 }}>
-      <div style={{ fontSize:12,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:acc,marginBottom:12 }}>📅 İş Planı</div>
-      <div style={{ overflowX:'auto' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:500 }}>
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: '.07em',
+          textTransform: 'uppercase',
+          color: acc,
+          marginBottom: 12
+        }}
+      >
+        📅 İş Planı
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
             <tr>
-              <th style={{ width:140, minWidth:100 }}></th>
-              {MONTHS_AZ.map((m,i)=>(
-                <th key={i} style={{ fontSize:9,color:'#9ca3af',fontWeight:500,textAlign:'center',paddingBottom:4,minWidth:28 }}>{m}</th>
+              <th style={{ width: 140, minWidth: 100 }}></th>
+              {MONTHS_AZ.map((m, i) => (
+                <th
+                  key={i}
+                  style={{
+                    fontSize: 9,
+                    color: '#9ca3af',
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    paddingBottom: 4,
+                    minWidth: 34
+                  }}
+                >
+                  {m}
+                </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
-            {items.map((item,ri)=>{
-              const s = parseInt(item.start_month)-1
-              const e = parseInt(item.end_month||item.start_month)-1
+            {items.map((item, ri) => {
+              const start = parseInt(item.start_month)
+              const end = parseInt(item.end_month || item.start_month)
+              const s = Math.min(start, end) - 1
+              const e = Math.max(start, end) - 1
+
               return (
                 <tr key={ri}>
-                  <td style={{ fontSize:11,color:'#374151',paddingRight:6,paddingBottom:2,maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                  <td
+                    style={{
+                      fontSize: 11,
+                      color: '#374151',
+                      paddingRight: 6,
+                      paddingBottom: 2,
+                      maxWidth: 140,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
                     {item.text}
                   </td>
-                  {MONTHS_AZ.map((_,mi)=>{
-                    const inRange = mi>=s && mi<=e
-                    const isMsEnd = item.is_milestone && mi===e
+
+                  {MONTHS_AZ.map((_, mi) => {
+                    const inRange = mi >= s && mi <= e
+                    const isMsEnd = item.is_milestone && mi === e
+
                     return (
-                      <td key={mi} style={{ padding:'1px',height:20,position:'relative' }}>
-                        <div style={{ borderRight:'1px solid rgba(0,0,0,.05)',height:'100%',position:'absolute',right:0,top:0 }}/>
-                        {inRange && !isMsEnd && (
-                          <div style={{ height:13,borderRadius:2,background:'#888780',opacity:.6,margin:'3px 1px' }}/>
+                      <td
+                        key={mi}
+                        style={{
+                          padding: '1px',
+                          height: 38,
+                          position: 'relative',
+                          minWidth: 34
+                        }}
+                      >
+                        <div
+                          style={{
+                            borderRight: '1px solid rgba(0,0,0,.05)',
+                            height: '100%',
+                            position: 'absolute',
+                            right: 0,
+                            top: 0
+                          }}
+                        />
+
+                        {inRange && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: 1,
+                              right: 1,
+                              top: '50%',
+                              height: 10,
+                              borderRadius: 2,
+                              background: '#888780',
+                              opacity: 0.6,
+                              transform: 'translateY(-50%)'
+                            }}
+                          />
                         )}
+
                         {isMsEnd && (
-                          <div title={item.milestone_label||'Milestone'} style={{ width:9,height:9,background:'#D85A30',transform:'rotate(45deg)',margin:'5px auto',cursor:'default' }}/>
+                          <>
+                            <div
+                              style={{
+                                position: 'absolute',
+                                right: -5,
+                                top: '50%',
+                                width: 9,
+                                height: 9,
+                                background: '#D85A30',
+                                transform: 'translateY(-50%) rotate(45deg)',
+                                zIndex: 3
+                              }}
+                            />
+
+                            {item.milestone_label && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  right: -10,
+                                  top: '50%',
+                                  transform: 'translate(-10%, -170%)',
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  color: '#D85A30',
+                                  whiteSpace: 'nowrap',
+                                  lineHeight: 1,
+                                  zIndex: 3
+                                }}
+                              >
+                                {item.milestone_label}
+                              </div>
+                            )}
+                          </>
                         )}
                       </td>
                     )
@@ -290,38 +442,91 @@ function GanttChart({ planned, acc }) {
           </tbody>
         </table>
       </div>
-      <div style={{ display:'flex',gap:14,marginTop:8 }}>
-        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#6b7280' }}>
-          <div style={{ width:16,height:9,borderRadius:2,background:'#888780',opacity:.6 }}/> Planlaşdırılan
+
+      <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <div style={{ width: 16, height: 9, borderRadius: 2, background: '#888780', opacity: 0.6 }} />
+          Planlaşdırılan
         </div>
-        <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#6b7280' }}>
-          <div style={{ width:9,height:9,background:'#D85A30',transform:'rotate(45deg)',flexShrink:0 }}/> Milestone
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <div style={{ width: 9, height: 9, background: '#D85A30', transform: 'rotate(45deg)', flexShrink: 0 }} />
+          Milestone
         </div>
       </div>
     </div>
   )
 }
-
-function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
+function PlatformSlide({ p, idx, total, goToSlide }) {
   const [lightbox, setLightbox] = useState(null)
-  const done = p.done||[]
-  const rawPlanned = p.planned || [...(p.plan_month||[]), ...(p.plan_quarter||[]), ...(p.plan_year||[])]
+  const done = p.done || []
+  const rawPlanned = p.planned || [...(p.plan_month || []), ...(p.plan_quarter || []), ...(p.plan_year || [])]
   const plannedObjects = rawPlanned.map(i => typeof i === 'string' ? { text: i } : i)
-  const plannedTexts = plannedObjects.map(i => i.text||i)
+  const plannedTexts = plannedObjects.map(i => i.text || i)
   const hasGantt = plannedObjects.some(i => i.start_month)
-  const stats = p.stats||[], screenshots = p.screenshots||[]
-  const acc = p.color||'#6366f1'
+  const stats = p.stats || []
+  const screenshots = p.screenshots || []
+  const acc = p.color || '#6366f1'
+  const [visible, setVisible] = useState(false)
+  const cardRef = useRef(null)
 
-  const dots = Array.from({length:total},(_,i)=>(
-    <button key={i} onClick={()=>goToSlide(i)}
-      style={{ width:i===currentSlide?20:6,height:6,borderRadius:i===currentSlide?3:'50%',background:i===currentSlide?'#6366f1':'#d1d5db',border:'none',cursor:'pointer',transition:'all .25s',padding:0,flexShrink:0 }}/>
-  ))
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.12 }
+    )
+
+    observer.observe(el)
+
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <>
-      <div className="pslide" id={p.id} data-idx={idx}
-        style={{ minHeight:'100%',scrollSnapAlign:'start',scrollSnapStop:'always',display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 4vw 44px',position:'relative',background:'linear-gradient(160deg,#f8f9ff,#f0f4ff)',overflowY:'auto' }}>
-        <div style={{ position:'absolute',top:-150,right:-150,width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${acc},transparent 70%)`,opacity:.06,pointerEvents:'none' }}/>
+<div
+  ref={cardRef}
+  className="pslide"
+  id={p.id}
+  data-idx={idx}
+  style={{
+    minHeight: 560,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    padding: '24px 28px',
+    marginBottom: 24,
+    position: 'relative',
+    background: 'linear-gradient(160deg, rgba(248,249,255,0.92), rgba(240,244,255,0.92))',
+    border: '1px solid rgba(255,255,255,0.75)',
+    borderRadius: 28,
+    boxShadow: '0 10px 30px rgba(80,90,140,0.08)',
+    overflow: 'hidden',
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(28px)',
+    transition: 'opacity .65s ease, transform .65s ease',
+    scrollMarginTop: '84px'
+  }}
+>
+  <div
+    style={{
+      position:'absolute',
+      top:-150,
+      right:-150,
+      width:500,
+      height:500,
+      borderRadius:'50%',
+      background:`radial-gradient(circle,${acc},transparent 70%)`,
+      opacity:.06,
+      pointerEvents:'none'
+    }}
+  />
 
         <div style={{ maxWidth:1060,width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:11 }}>
           {/* Header */}
@@ -401,10 +606,7 @@ function PlatformSlide({ p, idx, total, goToSlide, currentSlide }) {
           )}
         </div>
 
-        <div style={{ position:'absolute',bottom:12,left:'50%',transform:'translateX(-50%)',display:'flex',gap:5,alignItems:'center' }}>
-          {dots}
-        </div>
-      </div>
+             </div>
 
       {lightbox!==null&&(
         <Lightbox images={screenshots} index={lightbox} onClose={()=>setLightbox(null)} accentColor={acc} />
@@ -502,7 +704,7 @@ function Sidebar({ platforms, currentSlide, goToSlide }) {
         const isActive=currentSlide===idx; const acc=p.color||'#6366f1'
         return (
           <div key={p.id} title={p.name}
-            onClick={()=>goToSlide(idx)}
+            onClick={()=>{ document.getElementById('platforms')?.scrollIntoView({behavior:'smooth',block:'start'}); setTimeout(()=>goToSlide(idx),300) }}
             style={{ width:52,height:52,borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',transition:'background .22s,transform .22s,box-shadow .22s',background:isActive?acc:'transparent',transform:isActive?'translateX(2px)':'none',boxShadow:isActive?`0 4px 20px ${acc}70`:'none',flexShrink:0 }}>
             {p.logo_url
               ? <img src={p.logo_url} alt="" style={{ maxWidth:30,maxHeight:26,objectFit:'contain',filter:isActive?'brightness(0) invert(1)':'none',transition:'filter .2s' }}/>
