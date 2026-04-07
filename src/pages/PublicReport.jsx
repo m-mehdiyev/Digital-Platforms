@@ -62,20 +62,25 @@ export default function PublicReport() {
   const platforms = rd?.platforms || []
   const period = rd?.period || report.period_label
 
-  function goToSlide(idx) {
-    setCurrentSlide(idx)
-    const cont = platRef.current
-    if (!cont) return
+function goToSlide(idx) {
+  setCurrentSlide(idx)
 
-    const slides = cont.querySelectorAll('.pslide')
-    const target = slides[idx]
-    if (!target) return
+  const cont = platRef.current
+  if (!cont) return
 
-    target.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    })
-  }
+  const slides = cont.querySelectorAll('.pslide')
+  const target = slides[idx]
+  if (!target) return
+
+  const navOffset = 76
+  const y = target.getBoundingClientRect().top + window.scrollY - navOffset
+
+  window.scrollTo({
+    top: y,
+    behavior: 'smooth'
+  })
+}
+  
 
   function toggleSnap() {
     setSnapOn(prev => {
@@ -497,7 +502,8 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
     overflow: 'hidden',
     opacity: visible ? 1 : 0,
     transform: visible ? 'translateY(0)' : 'translateY(28px)',
-    transition: 'opacity .65s ease, transform .65s ease'
+    transition: 'opacity .65s ease, transform .65s ease',
+    scrollMarginTop: '84px'
   }}
 >
   <div
