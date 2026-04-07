@@ -10,22 +10,25 @@ export default function PublicReport() {
   const [snapOn, setSnapOn]             = useState(true)
   const [showPicker, setShowPicker]     = useState(false)
   const platRef = useRef(null)
+  const isAutoScrolling = useRef(false)
 
   useEffect(() => { fetchReports() }, [])
 
   useEffect(() => {
-    function handleScroll() {
-      const cont = platRef.current
-      if (!cont) return
+ function handleScroll() {
+  if (isAutoScrolling.current) return
 
-      const slides = cont.querySelectorAll('.pslide')
-      slides.forEach((s, i) => {
-        const r = s.getBoundingClientRect()
-        if (r.top >= -120 && r.top < window.innerHeight / 2) {
-          setCurrentSlide(i)
-        }
-      })
+  const cont = platRef.current
+  if (!cont) return
+
+  const slides = cont.querySelectorAll('.pslide')
+  slides.forEach((s, i) => {
+    const r = s.getBoundingClientRect()
+    if (r.top >= -80 && r.top < window.innerHeight * 0.45) {
+      setCurrentSlide(i)
     }
+  })
+}
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
@@ -63,8 +66,6 @@ export default function PublicReport() {
   const period = rd?.period || report.period_label
 
 function goToSlide(idx) {
-  setCurrentSlide(idx)
-
   const cont = platRef.current
   if (!cont) return
 
@@ -75,10 +76,17 @@ function goToSlide(idx) {
   const navOffset = 76
   const y = target.getBoundingClientRect().top + window.scrollY - navOffset
 
+  isAutoScrolling.current = true
+  setCurrentSlide(idx)
+
   window.scrollTo({
     top: y,
     behavior: 'smooth'
   })
+
+  setTimeout(() => {
+    isAutoScrolling.current = false
+  }, 900)
 }
   
 
