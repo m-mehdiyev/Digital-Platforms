@@ -36,9 +36,6 @@ useEffect(() => {
   return () => window.removeEventListener('scroll', handleScroll)
 }, [report])
 
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [report])
-
   async function fetchReports() {
     setLoading(true)
     const { data } = await supabase
