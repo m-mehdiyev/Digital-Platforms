@@ -7,9 +7,9 @@ export default function PublicReport() {
   const [report, setReport]             = useState(null)
   const [loading, setLoading]           = useState(true)
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [snapOn, setSnapOn]             = useState(true)
   const [showPicker, setShowPicker]     = useState(false)
   const platRef = useRef(null)
+  const isAutoScrolling = useRef(false)
 
   useEffect(() => { fetchReports() }, [])
 
@@ -43,19 +43,21 @@ export default function PublicReport() {
   const period = rd?.period || report.period_label
 
   function goToSlide(idx) {
-    setCurrentSlide(idx)
-    const cont = platRef.current
-    if (!cont) return
-    const slides = cont.querySelectorAll('.pslide')
-    if (slides[idx]) cont.scrollTo({ top: slides[idx].offsetTop, behavior: 'smooth' })
+    const slides = document.querySelectorAll('.pslide')
+    const target = slides[idx]
+    if (!target) return
+    const navOffset = 76
+    const y = target.getBoundingClientRect().top + window.scrollY - navOffset
+    isAutoScrolling.current = true
+    window.scrollTo({ top: y, behavior: 'smooth' })
+    setTimeout(() => {
+      setCurrentSlide(idx)
+      isAutoScrolling.current = false
+    }, 800)
   }
 
-  function toggleSnap() {
-    setSnapOn(prev => {
-      const next = !prev
-      if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y mandatory' : 'none'
-      return next
-    })
+  function handlePrint() {
+    window.print()
   }
 
   function switchReport(r) {
@@ -74,9 +76,8 @@ export default function PublicReport() {
       <nav className="pub-nav" style={{ position:'fixed',top:3,left:72,right:0,zIndex:600,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',height:64,background:'rgba(255,255,255,0.88)',backdropFilter:'blur(24px)',borderBottom:'1px solid rgba(99,102,241,0.1)',boxShadow:'0 2px 24px rgba(60,60,120,0.08)' }}>
         <div style={{ fontSize:15,fontWeight:700,color:'#0f172a' }}>Rəqəmsal Platformalar</div>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
-          <button onClick={toggleSnap} style={{ display:'flex',alignItems:'center',gap:6,background:snapOn?'rgba(99,102,241,0.08)':'rgba(0,0,0,0.04)',border:`1.5px solid ${snapOn?'rgba(99,102,241,0.2)':'#e5e7eb'}`,borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:snapOn?'#6366f1':'#9ca3af',cursor:'pointer',transition:'all .22s' }}>
-            <span style={{ width:8,height:8,borderRadius:'50%',background:snapOn?'#6366f1':'#d1d5db',flexShrink:0 }}/>
-            Snap: {snapOn?'ON':'OFF'}
+          <button onClick={handlePrint} style={{ display:'flex',alignItems:'center',gap:6,background:'rgba(99,102,241,0.08)',border:'1.5px solid rgba(99,102,241,0.2)',borderRadius:100,padding:'5px 14px',fontSize:12,fontWeight:700,color:'#6366f1',cursor:'pointer',transition:'all .22s' }}>
+            🖨️ PDF / Çap
           </button>
 
           {/* Dövr seçici */}
@@ -180,7 +181,21 @@ export default function PublicReport() {
         @keyframes lbIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
         @keyframes imgIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
 
-        /* ── MOBILE ── */
+        /* ── PRINT ── */
+        @media print {
+          .pub-sidebar { display: none !important; }
+          .pub-nav { display: none !important; }
+          #pub-cg { display: none !important; }
+          #pub-prog { display: none !important; }
+          .pub-content { margin-left: 0 !important; }
+          .orbs { display: none !important; }
+          .pslide { page-break-before: always; break-before: page; box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+          .pslide:first-child { page-break-before: avoid; break-before: avoid; }
+          section { page-break-before: always; break-before: page; }
+          section:first-of-type { page-break-before: avoid; break-before: avoid; }
+          footer { page-break-before: always; break-before: page; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
         @media (max-width: 640px) {
           /* Sidebar gizlə */
           .pub-sidebar { display: none !important; }
