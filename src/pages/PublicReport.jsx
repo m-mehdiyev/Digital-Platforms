@@ -196,7 +196,7 @@ export default function PublicReport() {
             <span className="gr">Platformalar</span>
           </h1>
 
-          <p className="pr-hero-sub">İcra heyəti hesabatı · {period}</p>
+          <p className="pr-hero-sub">Rəqəmsal platformalara dair hesabatlar · {period}</p>
 
           <div className="pr-hero-kpis">
             <KpiCard n={platforms.length} l="Platforma" />
