@@ -1,11 +1,20 @@
+import { useAuth } from '../hooks/useAuth'
+
 export default function AdminGate() {
-  const { role, isSuperAdmin } = useAuth()
+  const { role, platformId, loading, tokenData, isSuperAdmin } = useAuth()
+
+  if (loading) {
+    return (
+      <div style={{ color: 'white', padding: '40px', fontFamily: 'Arial, sans-serif' }}>
+        <h1>Loading...</h1>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ color: 'white', padding: 50 }}>
+    <div style={{ color: 'white', padding: '40px', fontFamily: 'Arial, sans-serif' }}>
       <h1>ADMIN WORKS</h1>
-      <p>Role: {role}</p>
-      <p>SuperAdmin: {isSuperAdmin ? 'YES' : 'NO'}</p>
+      <pre>{JSON.stringify({ role, platformId, loading, tokenData, isSuperAdmin }, null, 2)}</pre>
     </div>
   )
 }
