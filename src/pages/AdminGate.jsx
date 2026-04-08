@@ -1,12 +1,11 @@
-import { useAuth } from '../hooks/useAuth'
-import AdminLayout from '../components/admin/AdminLayout'
-
 export default function AdminGate() {
-  const auth = useAuth()
+  const { role, isSuperAdmin } = useAuth()
 
   return (
-    <div style={{ color: 'white', padding: '20px' }}>
-      <pre>{JSON.stringify(auth, null, 2)}</pre>
+    <div style={{ color: 'white', padding: 50 }}>
+      <h1>ADMIN WORKS</h1>
+      <p>Role: {role}</p>
+      <p>SuperAdmin: {isSuperAdmin ? 'YES' : 'NO'}</p>
     </div>
   )
 }
