@@ -228,7 +228,7 @@ export default function PublicReport() {
           <SectionIntro
             kicker="Ətraflı hesabat"
             title="Platforma detayları"
-            desc="Görülən işlər, plan, Gantt cədvəli və ekran görüntüləri"
+            desc="Görülən işlər, Gantt cədvəli və ekran görüntüləri"
           />
 
           <div
@@ -317,7 +317,6 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
       : [...(p.plan_month || []), ...(p.plan_quarter || []), ...(p.plan_year || [])]
 
   const plannedObjects = rawPlanned.map(item => (typeof item === 'string' ? { text: item } : item))
-  const plannedTexts = plannedObjects.map(item => item?.text || item?.label || '')
   const hasGantt = plannedObjects.some(item => item && typeof item === 'object' && item.start_month)
   const stats = p.stats || []
   const screenshots = p.screenshots || []
@@ -390,18 +389,25 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
           </div>
         )}
 
-                <ul className="pr-ilist">
-              {plannedTexts.filter(Boolean).length ? (
-                plannedTexts
-                  .filter(Boolean)
-                  .map((t, i) => (
-                    <li key={i}>
-                      <span className="pr-im" style={{ color: acc }}>
-                        ›
-                      </span>
-                      <span>{t}</span>
-                    </li>
-                  ))
+        <div className="pr-cols2 pr-cols2-swap">
+          <div className="pr-gpanel">
+            <div className="pr-panel-hd" style={{ color: acc }}>
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
+                ✓
+              </span>
+              Görülən işlər
+            </div>
+
+            <ul className="pr-ilist">
+              {done.length ? (
+                done.map((d, i) => (
+                  <li key={i}>
+                    <span className="pr-im" style={{ color: '#16a34a' }}>
+                      ✓
+                    </span>
+                    <span>{d}</span>
+                  </li>
+                ))
               ) : (
                 <div className="pr-empty-txt">Məlumat yoxdur</div>
               )}
@@ -437,30 +443,6 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
               <div className="pr-empty-txt">Ekran görüntüsü əlavə edilməyib</div>
             </div>
           )}
-        </div>
-
-        <div className="pr-gpanel" style={{ marginTop: 12 }}>
-          <div className="pr-panel-hd" style={{ color: acc }}>
-            <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
-              ✓
-            </span>
-            Görülən işlər
-          </div>
-
-          <ul className="pr-ilist">
-            {done.length ? (
-              done.map((d, i) => (
-                <li key={i}>
-                  <span className="pr-im" style={{ color: '#16a34a' }}>
-                    ✓
-                  </span>
-                  <span>{d}</span>
-                </li>
-              ))
-            ) : (
-              <div className="pr-empty-txt">Məlumat yoxdur</div>
-            )}
-          </ul>
         </div>
 
         {hasGantt && (
@@ -1424,9 +1406,6 @@ function GlobalStyles() {
         grid-template-columns: 7fr 3fr;
         gap: 12px;
         margin-bottom: 12px;
-      }
-
-      .pr-cols2-swap {
         align-items: start;
       }
 
@@ -1505,39 +1484,42 @@ function GlobalStyles() {
       .pr-gtbl {
         width: 100%;
         border-collapse: collapse;
-        min-width: 580px;
+        min-width: 760px;
       }
 
       .pr-gtbl th {
         font-size: 11px;
-        color: rgba(255,255,255,.62);
         font-weight: 600;
+        color: rgba(255,255,255,.62);
         text-align: center;
         padding-bottom: 10px;
         min-width: 48px;
       }
 
       .pr-gnh {
+        min-width: 200px;
+        width: 200px;
         text-align: left !important;
-        min-width: 130px;
       }
 
       .pr-gtbl td {
-        height: 30px;
+        height: 42px;
         position: relative;
+        vertical-align: top;
       }
 
       .pr-gnd {
         font-size: 12px;
         line-height: 1.35;
+        color: rgba(239,244,255,.76);
+        font-weight: 300;
+        padding-right: 12px;
         white-space: normal;
         overflow: visible;
         text-overflow: unset;
+        min-width: 200px;
+        width: 200px;
         max-width: none;
-        min-width: 220px;
-        width: 220px;
-        vertical-align: top;
-        padding-right: 12px;
       }
 
       .pr-gcl {
@@ -1616,13 +1598,9 @@ function GlobalStyles() {
 
       .pr-ss-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill,minmax(150px,1fr));
+        grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
         gap: 10px;
         margin-top: 4px;
-      }
-
-      .pr-ss-grid-compact {
-        grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
       }
 
       .pr-shot-panel {
@@ -1657,25 +1635,19 @@ function GlobalStyles() {
         min-height: 180px;
       }
 
-    .pr-issue {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  background: rgba(245,165,36,.07);
-  border: 1px solid rgba(245,165,36,.2);
-  border-radius: 14px;
-  padding: 13px 16px;
-  font-size: 13px;
-  color: rgba(245,165,36,.9);
-  margin-top: 12px;
-  line-height: 1.55;
-}
-
-body.pr-light .pr-issue {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #b91c1c;
-}
+      .pr-issue {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: rgba(245,165,36,.07);
+        border: 1px solid rgba(245,165,36,.2);
+        border-radius: 14px;
+        padding: 13px 16px;
+        font-size: 13px;
+        color: rgba(245,165,36,.9);
+        margin-top: 12px;
+        line-height: 1.55;
+      }
 
       .pr-lb {
         display: flex;
@@ -1831,6 +1803,12 @@ body.pr-light .pr-issue {
         color: #64748b;
       }
 
+      body.pr-light .pr-issue {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #b91c1c;
+      }
+
       @media (max-width: 900px) {
         .pr-sidebar { display: none; }
         .pr-topbar { margin-left: 14px; right: 14px; }
@@ -1865,8 +1843,7 @@ body.pr-light .pr-issue {
           grid-template-columns: repeat(2,1fr) !important;
         }
 
-        .pr-ss-grid,
-        .pr-ss-grid-compact {
+        .pr-ss-grid {
           grid-template-columns: 1fr;
         }
       }
