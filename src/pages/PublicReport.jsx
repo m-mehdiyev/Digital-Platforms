@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from './lib/supabase'
+import { supabase } from '../lib/supabase'
 
 const MONTHS_AZ = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'İyn', 'İyl', 'Avq', 'Sen', 'Okt', 'Noy', 'Dek']
 
@@ -10,12 +10,19 @@ export default function PublicReport() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [snapOn, setSnapOn] = useState(true)
   const [showPicker, setShowPicker] = useState(false)
+  const [theme, setTheme] = useState(() => localStorage.getItem('public-report-theme') || 'dark')
   const platRef = useRef(null)
   const isAutoScrolling = useRef(false)
 
   useEffect(() => {
     fetchReports()
   }, [])
+
+  useEffect(() => {
+    document.body.classList.toggle('pr-light', theme === 'light')
+    localStorage.setItem('public-report-theme', theme)
+    return () => document.body.classList.remove('pr-light')
+  }, [theme])
 
   useEffect(() => {
     function handleScroll() {
@@ -25,9 +32,9 @@ export default function PublicReport() {
       if (!cont) return
 
       const slides = cont.querySelectorAll('.pslide')
-      slides.forEach((slide, i) => {
-        const rect = slide.getBoundingClientRect()
-        if (rect.top >= -80 && rect.top < window.innerHeight * 0.45) {
+      slides.forEach((s, i) => {
+        const r = s.getBoundingClientRect()
+        if (r.top >= -120 && r.top < window.innerHeight * 0.45) {
           setCurrentSlide(i)
         }
       })
@@ -68,15 +75,11 @@ export default function PublicReport() {
     const target = slides[idx]
     if (!target) return
 
-    const navOffset = 76
+    const navOffset = 88
     const y = target.getBoundingClientRect().top + window.scrollY - navOffset
 
     isAutoScrolling.current = true
-
-    window.scrollTo({
-      top: y,
-      behavior: 'smooth'
-    })
+    window.scrollTo({ top: y, behavior: 'smooth' })
 
     window.setTimeout(() => {
       setCurrentSlide(idx)
@@ -85,7 +88,7 @@ export default function PublicReport() {
   }
 
   function toggleSnap() {
-    setSnapOn((prev) => {
+    setSnapOn(prev => {
       const next = !prev
       if (platRef.current) {
         platRef.current.style.scrollSnapType = next ? 'y proximity' : 'none'
@@ -98,621 +101,228 @@ export default function PublicReport() {
     setReport(nextReport)
     setCurrentSlide(0)
     setShowPicker(false)
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 16,
-          background: 'linear-gradient(160deg,#f8f9ff,#eef2ff)'
-        }}
-      >
-        <div className="spinner" />
-        <p style={{ fontSize: 15, color: '#6b7280' }}>Hesabat yüklənir...</p>
+      <div className="pr-shell">
+        <GlobalStyles />
+        <div className="pr-loading">
+          <div className="pr-spinner" />
+          <p>Hesabat yüklənir...</p>
+        </div>
       </div>
     )
   }
 
   if (!report) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 12,
-          textAlign: 'center',
-          padding: 40
-        }}
-      >
-        <div style={{ fontSize: 48 }}>📊</div>
-        <h2 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a' }}>Hesabat mövcud deyil</h2>
-        <p style={{ color: '#6b7280', fontSize: 15 }}>
-          Admin tərəfindən hələ heç bir hesabat yayımlanmayıb.
-        </p>
+      <div className="pr-shell">
+        <GlobalStyles />
+        <div className="pr-empty">
+          <div style={{ fontSize: 48 }}>📊</div>
+          <h2>Hesabat mövcud deyil</h2>
+          <p>Admin tərəfindən hələ heç bir hesabat yayımlanmayıb.</p>
+        </div>
       </div>
     )
   }
 
   const rd = report.report_data || {}
   const platforms = rd?.platforms || []
-  const period = rd?.period || report.period_label
+  const period = rd?.period || report.period_label || 'Dövr'
+  const totalDone = platforms.reduce((sum, p) => sum + (p.done?.length || 0), 0)
+  const totalScreenshots = platforms.reduce((sum, p) => sum + (p.screenshots?.length || 0), 0)
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: '#f8fafc' }}>
-      <div className="orbs">
-        <div className="orb o1" />
-        <div className="orb o2" />
-        <div className="orb o3" />
-      </div>
+    <div className="pr-shell">
+      <GlobalStyles />
 
-      <CursorGlow />
-      <ProgressBar />
+      <HeroCanvas />
+
       <Sidebar
         platforms={platforms}
         currentSlide={currentSlide}
         goToSlide={goToSlide}
-        className="pub-sidebar"
       />
 
-      <nav
-        className="pub-nav"
-        style={{
-          position: 'fixed',
-          top: 3,
-          left: 72,
-          right: 0,
-          zIndex: 600,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 28px',
-          height: 64,
-          background: 'rgba(255,255,255,0.88)',
-          backdropFilter: 'blur(24px)',
-          borderBottom: '1px solid rgba(99,102,241,0.1)',
-          boxShadow: '0 2px 24px rgba(60,60,120,0.08)'
-        }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Rəqəmsal Platformalar</div>
+      <header className="pr-topbar">
+        <div className="pr-topbar-brand">Rəqəmsal Platformaların İdarəolunması Şöbəsi</div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={toggleSnap}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: snapOn ? 'rgba(99,102,241,0.08)' : 'rgba(0,0,0,0.04)',
-              border: `1.5px solid ${snapOn ? 'rgba(99,102,241,0.2)' : '#e5e7eb'}`,
-              borderRadius: 100,
-              padding: '5px 14px',
-              fontSize: 12,
-              fontWeight: 700,
-              color: snapOn ? '#6366f1' : '#9ca3af',
-              cursor: 'pointer',
-              transition: 'all .22s'
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: snapOn ? '#6366f1' : '#d1d5db',
-                flexShrink: 0
-              }}
-            />
-            Snap: {snapOn ? 'ON' : 'OFF'}
+        <div className="pr-topbar-right">
+          <div className="pr-chip">
+            <span className="pr-chip-dot" />
+            Canlı görünüş
+          </div>
+
+          <button className="pr-chip pr-chip-btn" onClick={toggleSnap}>
+            {snapOn ? 'Snap ON' : 'Snap OFF'}
           </button>
 
           <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowPicker((v) => !v)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                background: 'rgba(99,102,241,0.1)',
-                color: '#6366f1',
-                padding: '5px 14px',
-                borderRadius: 100,
-                border: '1.5px solid rgba(99,102,241,0.2)',
-                cursor: 'pointer'
-              }}
-            >
-              📅 {period} <span style={{ fontSize: 10, opacity: 0.7 }}>▾</span>
+            <button className="pr-chip pr-chip-btn" onClick={() => setShowPicker(v => !v)}>
+              📅 {period}
             </button>
 
             {showPicker && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  background: '#fff',
-                  borderRadius: 14,
-                  boxShadow: '0 8px 32px rgba(0,0,0,.15)',
-                  border: '1.5px solid rgba(99,102,241,.1)',
-                  minWidth: 220,
-                  zIndex: 100,
-                  overflow: 'hidden'
-                }}
-              >
-                {reports.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => switchReport(r)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      width: '100%',
-                      padding: '11px 16px',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: r.id === report.id ? '#6366f1' : '#374151',
-                      background: r.id === report.id ? 'rgba(99,102,241,0.06)' : 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      borderBottom: '1px solid #f1f3f9'
-                    }}
-                  >
-                    <span>{r.period_label}</span>
-                    {r.id === report.id && <span>✓</span>}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="pr-picker-backdrop" onClick={() => setShowPicker(false)} />
+                <div className="pr-picker">
+                  {reports.map(r => (
+                    <button
+                      key={r.id}
+                      className={`pr-picker-item ${r.id === report.id ? 'is-active' : ''}`}
+                      onClick={() => switchReport(r)}
+                    >
+                      <span>{r.period_label}</span>
+                      {r.id === report.id && <span>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
-          {showPicker && (
-            <div
-              style={{ position: 'fixed', inset: 0, zIndex: 99 }}
-              onClick={() => setShowPicker(false)}
-            />
-          )}
-
-          <span style={{ fontSize: 12, color: '#9ca3af' }}>
-            {report.published_at ? new Date(report.published_at).toLocaleDateString('az') : ''}
-          </span>
-        </div>
-      </nav>
-
-      <div className="pub-content" style={{ marginLeft: 72, position: 'relative', zIndex: 2 }}>
-        <section
-          style={{
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            padding: '100px 6vw 60px',
-            background: 'linear-gradient(160deg,#0f0c29 0%,#302b63 50%,#24243e 100%)',
-            overflow: 'hidden',
-            position: 'relative'
-          }}
-        >
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <div
-              style={{
-                position: 'absolute',
-                width: 700,
-                height: 700,
-                borderRadius: '50%',
-                filter: 'blur(80px)',
-                background: 'rgba(99,102,241,.35)',
-                top: -200,
-                right: -150,
-                animation: 'orbDrift 12s ease-in-out infinite alternate'
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                width: 500,
-                height: 500,
-                borderRadius: '50%',
-                filter: 'blur(80px)',
-                background: 'rgba(139,92,246,.25)',
-                bottom: -100,
-                left: -80,
-                animation: 'orbDrift 12s ease-in-out infinite alternate',
-                animationDelay: '-5s'
-              }}
-            />
-          </div>
-
-          <div style={{ position: 'relative', zIndex: 2 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', color: 'rgba(196,181,253,.9)', marginBottom: 28 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a78bfa', animation: 'ep 2s infinite', display: 'inline-block' }} />
-              {period}
-            </div>
-
-            <h1 style={{ fontSize: 'clamp(52px,7vw,96px)', fontWeight: 700, lineHeight: 1, color: '#fff', letterSpacing: '-.025em', marginBottom: 16 }}>
-              Rəqəmsal
-              <br />
-              <span
-                style={{
-                  background: 'linear-gradient(135deg,#c4b5fd,#a78bfa,#818cf8)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}
-              >
-                Platformalar
-              </span>
-            </h1>
-
-            <p style={{ fontSize: 16, color: 'rgba(196,181,253,.75)', maxWidth: 560, lineHeight: 1.7, marginBottom: 52 }}>
-              Rəqəmsal Platformaların İdarəolunması Şöbəsi
-              <br />
-              Hesabat dövrü: {period}
-            </p>
-
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              {[
-                { n: platforms.length, l: 'Platforma' },
-                { n: platforms.reduce((s, p) => s + (p.done?.length || 0), 0), l: 'Görülən İş' },
-                { n: report.year || '2026', l: rd?.quarter || 'Dövr' },
-                { n: platforms.filter((p) => p.screenshots?.length > 0).length, l: 'Ekran Görüntüsü' }
-              ].map((k, i) => (
-                <div
-                  key={i}
-                  style={{
-                    background: 'rgba(255,255,255,.07)',
-                    border: '1px solid rgba(255,255,255,.12)',
-                    backdropFilter: 'blur(16px)',
-                    borderRadius: 18,
-                    padding: '20px 26px',
-                    minWidth: 120,
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent)' }} />
-                  <div style={{ fontSize: 36, fontWeight: 700, color: '#fff', lineHeight: 1, marginBottom: 4 }}>{k.n}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(196,181,253,.7)' }}>{k.l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 32,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 6,
-              cursor: 'pointer',
-              animation: 'sh 2.5s infinite'
-            }}
-            onClick={() => document.getElementById('overview')?.scrollIntoView({ behavior: 'smooth' })}
+          <button
+            className="pr-chip pr-chip-btn"
+            onClick={() => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))}
           >
-            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.2)', background: 'rgba(255,255,255,.06)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'rgba(255,255,255,.5)' }}>
-              ↓
-            </div>
-            <span style={{ fontSize: 9, letterSpacing: '.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,.25)' }}>
-              Aşağı
-            </span>
-          </div>
-        </section>
+            🌗 Light / Dark
+          </button>
+        </div>
+      </header>
 
-        <section id="overview" style={{ background: 'linear-gradient(160deg,#f5f6ff,#eef0ff)', padding: '72px 6vw' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', color: '#6366f1', marginBottom: 10 }}>
-            — Platforma Ekosistemi
+      <section className="pr-hero">
+        <div className="pr-hero-fade" />
+        <div className="pr-hero-content">
+          <div className="pr-hero-ey">
+            <span className="pr-hero-ey-dot" />
+            Rəqəmsal Platformaların İdarəolunması Şöbəsi
           </div>
-          <h2 style={{ fontSize: 'clamp(26px,3.5vw,42px)', fontWeight: 700, color: '#0f172a', letterSpacing: '-.02em', marginBottom: 8 }}>
-            Bütün Platformalar
-          </h2>
-          <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 36 }}>
-            Platforma üzərinə klik edərək ətraflı hesabata keçin
-          </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 16 }}>
+          <h1 className="pr-hero-h1">
+            Rəqəmsal
+            <br />
+            <span className="gr">Platformalar</span>
+          </h1>
+
+          <p className="pr-hero-sub">İcra heyəti hesabatı · {period}</p>
+
+          <div className="pr-hero-kpis">
+            <KpiCard n={platforms.length} l="Platforma" />
+            <KpiCard n={totalDone} l="Görülən iş" />
+            <KpiCard n={period} l="Hesabat dövrü" />
+            <KpiCard n={totalScreenshots} l="Ekran görüntüsü" />
+          </div>
+        </div>
+      </section>
+
+      <div className="pr-wrap">
+        <section className="pr-section" id="overview">
+          <SectionIntro
+            kicker="Platforma ekosistemi"
+            title="Bütün platformalar"
+            desc="Platforma üzərinə klik edərək ətraflı hesabata keçin"
+          />
+
+          <div className="pr-ov-grid">
             {platforms.map((p, idx) => (
-              <OvCard key={p.id || idx} p={p} idx={idx} goToSlide={goToSlide} />
+              <OverviewCard
+                key={p.id || idx}
+                p={p}
+                idx={idx}
+                goToSlide={goToSlide}
+              />
             ))}
           </div>
         </section>
 
-        <div
-          id="platforms"
-          ref={platRef}
-          style={{
-            position: 'relative',
-            padding: '24px 6vw 56px',
-            scrollSnapType: snapOn ? 'y proximity' : 'none'
-          }}
-        >
-          {platforms.map((p, idx) => (
-            <PlatformSlide
-              key={p.id || idx}
-              p={p}
-              idx={idx}
-              total={platforms.length}
-              goToSlide={goToSlide}
-            />
-          ))}
-        </div>
+        <div className="pr-divider" />
 
-        <footer
-          style={{
-            background: 'linear-gradient(135deg,#0f0c29,#1e1b4b)',
-            color: 'rgba(255,255,255,.6)',
-            padding: '40px 6vw',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            position: 'relative',
-            zIndex: 2
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>IRIA</div>
-          <div style={{ fontSize: 12, textAlign: 'right', lineHeight: 1.6 }}>
-            Rəqəmsal Platformalar · {period}
-            <br />
-            Rəqəmsal Platformaların İdarəolunması Şöbəsi
+        <section className="pr-section" id="platforms">
+          <SectionIntro
+            kicker="Ətraflı hesabat"
+            title="Platforma detayları"
+            desc="Görülən işlər, plan, Gantt cədvəli və ekran görüntüləri"
+          />
+
+          <div
+            className="pr-plat-list"
+            ref={platRef}
+            style={{ scrollSnapType: snapOn ? 'y proximity' : 'none' }}
+          >
+            {platforms.map((p, idx) => (
+              <PlatformSlide
+                key={p.id || idx}
+                p={p}
+                idx={idx}
+                total={platforms.length}
+                goToSlide={goToSlide}
+              />
+            ))}
           </div>
-        </footer>
+        </section>
       </div>
 
-      <style>{`
-        @keyframes orbDrift {0% {transform: translate(0,0) scale(1)} 100% {transform: translate(35px,50px) scale(1.1)}}
-        @keyframes ep {0%,100% {opacity:1; transform: scale(1)} 50% {opacity:.4; transform: scale(.7)}}
-        @keyframes sh {0%,100% {transform: translateX(-50%) translateY(0)} 50% {transform: translateX(-50%) translateY(-6px)}}
-        @keyframes lbIn {from {opacity:0; transform: scale(.96)} to {opacity:1; transform: scale(1)}}
-        @keyframes imgIn {from {opacity:0; transform: scale(.98)} to {opacity:1; transform: scale(1)}}
-        @keyframes spin {from {transform: rotate(0deg)} to {transform: rotate(360deg)}}
-        @keyframes progress {from {transform: scaleX(0)} to {transform: scaleX(1)}}
-
-        .spinner {
-          width: 38px;
-          height: 38px;
-          border-radius: 50%;
-          border: 3px solid rgba(99,102,241,0.15);
-          border-top-color: #6366f1;
-          animation: spin .8s linear infinite;
-        }
-
-        .glass-card {
-          background: rgba(255,255,255,0.72);
-          backdrop-filter: blur(18px);
-          border-radius: 24px;
-          box-shadow: 0 16px 48px rgba(15,23,42,0.08);
-        }
-
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        .line-clamp-3 {
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        @media (max-width: 640px) {
-          .pub-sidebar { display: none !important; }
-          .pub-content { margin-left: 0 !important; }
-          .pub-nav { left: 0 !important; padding: 0 14px !important; }
-          .pslide { padding: 12px 14px 36px !important; }
-          .mobile-col { flex-direction: column !important; }
-          .mobile-grid-1 { grid-template-columns: 1fr !important; }
-          .mobile-stats { grid-template-columns: repeat(2,1fr) !important; }
-        }
-      `}</style>
+      <footer className="pr-footer">
+        <div className="pr-footer-brand">IRIA</div>
+        <div className="pr-footer-meta">
+          Rəqəmsal Platformalar · {period}
+          <br />
+          Rəqəmsal Platformaların İdarəolunması Şöbəsi
+        </div>
+      </footer>
     </div>
   )
 }
 
-function OvCard({ p, idx, goToSlide }) {
-  const acc = p.color || '#6366f1'
-  const [hov, setHov] = useState(false)
+function KpiCard({ n, l }) {
+  return (
+    <div className="pr-kpi">
+      <div className="pr-kpi-n">{n}</div>
+      <div className="pr-kpi-l">{l}</div>
+    </div>
+  )
+}
+
+function SectionIntro({ kicker, title, desc }) {
+  return (
+    <div className="pr-rv pr-rv-in">
+      <div className="pr-sec-kicker">{kicker}</div>
+      <h2 className="pr-sec-h2">{title}</h2>
+      <p className="pr-sec-desc">{desc}</p>
+    </div>
+  )
+}
+
+function OverviewCard({ p, idx, goToSlide }) {
+  const accent = p.color || '#15c39a'
 
   return (
     <button
+      className="pr-ov-card"
       onClick={() => goToSlide(idx)}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      className="glass-card"
-      style={{
-        padding: '28px 22px',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: 14,
-        border: '1.5px solid rgba(255,255,255,0.9)',
-        borderTop: `4px solid ${acc}`,
-        background: 'rgba(255,255,255,.74)',
-        width: '100%',
-        textAlign: 'left',
-        transition: 'all .32s cubic-bezier(.23,1,.32,1)',
-        transform: hov ? 'translateY(-6px) scale(1.02)' : 'none',
-        boxShadow: hov ? `0 20px 48px ${acc}22` : '0 14px 34px rgba(15,23,42,.06)'
-      }}
+      style={{ '--ov-accent': accent }}
     >
-      <div style={{ height: 48, display: 'flex', alignItems: 'center' }}>
+      <div className="pr-ov-num">{String(idx + 1).padStart(2, '0')}</div>
+
+      <div className="pr-ov-logo">
         {p.logo_url ? (
-          <img
-            src={p.logo_url}
-            alt={p.name}
-            style={{ maxHeight: 48, maxWidth: 160, objectFit: 'contain', objectPosition: 'left' }}
-          />
+          <img src={p.logo_url} alt={p.name} />
         ) : (
-          <b style={{ fontSize: 16, color: acc }}>{p.name}</b>
+          <div style={{ fontWeight: 700, color: '#fff', fontSize: 16 }}>{p.short || p.name}</div>
         )}
       </div>
 
-      <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }} className="line-clamp-3">
-        {p.tagline || 'Platforma haqqında qısa məlumat'}
-      </div>
+      <div className="pr-ov-name">{p.name}</div>
+      <div className="pr-ov-tag">{p.tagline || p.tag || 'Platforma haqqında məlumat'}</div>
 
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          padding: '5px 14px',
-          borderRadius: 100,
-          background: acc,
-          color: '#fff',
-          marginTop: 'auto',
-          letterSpacing: '.02em'
-        }}
-      >
-        {p.done?.length || 0} iş tamamlandı{p.screenshots?.length ? ' 📷' : ''}
+      <div className="pr-ov-badge">
+        <span className="pr-ov-badge-dot" />
+        {p.done?.length || 0} iş tamamlandı
       </div>
     </button>
-  )
-}
-
-function GanttChart({ planned, acc }) {
-  const items = planned?.filter((i) => i && typeof i === 'object' && i.start_month) || []
-  if (!items.length) return null
-
-  return (
-    <div className="glass-card" style={{ padding: '14px 18px', marginTop: 0 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: acc, marginBottom: 12 }}>
-        📅 İş Planı
-      </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-          <thead>
-            <tr>
-              <th style={{ width: 140, minWidth: 100 }} />
-              {MONTHS_AZ.map((m, i) => (
-                <th
-                  key={i}
-                  style={{
-                    fontSize: 9,
-                    color: '#9ca3af',
-                    fontWeight: 500,
-                    textAlign: 'center',
-                    paddingBottom: 4,
-                    minWidth: 34
-                  }}
-                >
-                  {m}
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          <tbody>
-            {items.map((item, ri) => {
-              const start = parseInt(item.start_month, 10)
-              const end = parseInt(item.end_month || item.start_month, 10)
-              const milestone = parseInt(item.milestone_month || end, 10)
-
-              return (
-                <tr key={ri}>
-                  <td style={{ fontSize: 11, fontWeight: 600, color: '#334155', padding: '10px 10px 10px 0', whiteSpace: 'nowrap' }}>
-                    {item.text || item.label || `İş ${ri + 1}`}
-                  </td>
-
-                  {MONTHS_AZ.map((_, mi) => {
-                    const monthIndex = mi + 1
-                    const active = monthIndex >= start && monthIndex <= end
-                    const isMilestone = monthIndex === milestone && item.milestone_month
-
-                    return (
-                      <td key={mi} style={{ height: 26, position: 'relative', textAlign: 'center' }}>
-                        {active && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: 2,
-                              right: 2,
-                              top: '50%',
-                              transform: 'translateY(-50%)',
-                              height: 10,
-                              borderRadius: 999,
-                              background: '#888780',
-                              opacity: 0.6
-                            }}
-                          />
-                        )}
-
-                        {isMilestone && (
-                          <>
-                            <div
-                              style={{
-                                position: 'absolute',
-                                right: -5,
-                                top: '50%',
-                                width: 9,
-                                height: 9,
-                                background: '#D85A30',
-                                transform: 'translateY(-50%) rotate(45deg)',
-                                zIndex: 3
-                              }}
-                            />
-
-                            {item.milestone_label && (
-                              <div
-                                style={{
-                                  position: 'absolute',
-                                  right: -10,
-                                  top: '50%',
-                                  transform: 'translate(-10%, -170%)',
-                                  fontSize: 10,
-                                  fontWeight: 600,
-                                  color: '#D85A30',
-                                  whiteSpace: 'nowrap',
-                                  lineHeight: 1,
-                                  zIndex: 3
-                                }}
-                              >
-                                {item.milestone_label}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
-          <div style={{ width: 16, height: 9, borderRadius: 2, background: '#888780', opacity: 0.6 }} />
-          Planlaşdırılan
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
-          <div style={{ width: 9, height: 9, background: '#D85A30', transform: 'rotate(45deg)', flexShrink: 0 }} />
-          Milestone
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -722,15 +332,19 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
   const cardRef = useRef(null)
 
   const done = p.done || []
-  const rawPlanned = [
-    ...(Array.isArray(p.planned) ? p.planned : []),
-    ...(Array.isArray(p.plan_month) ? p.plan_month : []),
-    ...(Array.isArray(p.plan_quarter) ? p.plan_quarter : []),
-    ...(Array.isArray(p.plan_year) ? p.plan_year : [])
-  ]
-  const plannedObjects = rawPlanned.map((i) => (typeof i === 'string' ? { text: i } : i))
-  const plannedTexts = plannedObjects.map((i) => i?.text || i?.label || '')
-  const hasGantt = plannedObjects.some((i) => i?.start_month)
+  const rawPlanned = Array.isArray(p.planned) && p.planned.length
+    ? p.planned
+    : [
+        ...(p.plan_month || []),
+        ...(p.plan_quarter || []),
+        ...(p.plan_year || [])
+      ]
+
+  const plannedObjects = rawPlanned.map(item =>
+    typeof item === 'string' ? { text: item } : item
+  )
+  const plannedTexts = plannedObjects.map(item => item?.text || item?.label || '')
+  const hasGantt = plannedObjects.some(item => item && typeof item === 'object' && item.start_month)
   const stats = p.stats || []
   const screenshots = p.screenshots || []
   const acc = p.color || '#6366f1'
@@ -757,141 +371,123 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
     <>
       <div
         ref={cardRef}
-        className="pslide"
+        className={`pslide pr-plat-card pr-rv ${visible ? 'pr-rv-in' : ''}`}
         id={p.id || `platform-${idx}`}
-        data-idx={idx}
-        style={{
-          minHeight: 560,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          padding: '24px 28px',
-          marginBottom: 24,
-          position: 'relative',
-          background: 'linear-gradient(160deg, rgba(248,249,255,0.94), rgba(255,255,255,0.9))',
-          border: '1px solid rgba(255,255,255,0.9)',
-          borderRadius: 32,
-          boxShadow: visible ? '0 22px 60px rgba(15,23,42,.08)' : '0 8px 24px rgba(15,23,42,.04)',
-          scrollSnapAlign: 'start',
-          overflow: 'hidden',
-          transition: 'all .45s ease'
-        }}
+        style={{ scrollSnapAlign: 'start' }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: `radial-gradient(circle at top right, ${acc}16, transparent 34%)`,
-            pointerEvents: 'none'
-          }}
-        />
+        <div className="pr-plat-glow" style={{ background: acc }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 22, position: 'relative', zIndex: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ width: 54, height: 54, borderRadius: 18, background: `${acc}15`, border: `1px solid ${acc}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-              {p.logo_url ? (
-                <img src={p.logo_url} alt={p.name} style={{ maxWidth: '72%', maxHeight: '72%', objectFit: 'contain' }} />
-              ) : (
-                <span style={{ fontSize: 20, fontWeight: 700, color: acc }}>{(p.name || '?').slice(0, 1)}</span>
-              )}
+        <div className="pr-plat-head">
+          <div className="pr-plat-head-left">
+            <div className="pr-plat-icon" style={{ background: `${acc}20`, color: acc }}>
+              {p.logo_url ? <img src={p.logo_url} alt={p.name} /> : <span>{p.short || p.name?.slice(0, 2)}</span>}
             </div>
 
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: acc, marginBottom: 6 }}>
-                <span>{String(idx + 1).padStart(2, '0')}</span>
-                <span style={{ opacity: 0.45 }}>/</span>
-                <span>{String(total).padStart(2, '0')}</span>
-              </div>
-              <h3 style={{ fontSize: 'clamp(24px,3vw,34px)', lineHeight: 1.1, color: '#0f172a', margin: 0, fontWeight: 700 }}>
-                {p.name}
-              </h3>
-              {p.tagline && <p style={{ margin: '8px 0 0', fontSize: 14, color: '#64748b' }}>{p.tagline}</p>}
+              <div className="pr-plat-name">{p.name}</div>
+              <div className="pr-plat-tag">{p.tagline || p.tag || 'Platforma'}</div>
             </div>
           </div>
 
-          <button
-            onClick={() => goToSlide(Math.min(idx + 1, total - 1))}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: '50%',
-              border: '1px solid rgba(148,163,184,.25)',
-              background: '#fff',
-              color: '#334155',
-              cursor: 'pointer',
-              flexShrink: 0
-            }}
-            title="Növbəti"
-          >
-            →
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <div className="pr-plat-idx">{String(idx + 1).padStart(2, '0')}</div>
+            <div className="pr-plat-nav">
+              <button onClick={() => goToSlide(Math.max(0, idx - 1))}>←</button>
+              <button onClick={() => goToSlide(Math.min(total - 1, idx + 1))}>→</button>
+            </div>
+          </div>
         </div>
 
         {stats.length > 0 && (
-          <div className="mobile-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 18, position: 'relative', zIndex: 2 }}>
+          <div
+            className="pr-stat-row"
+            style={{ gridTemplateColumns: `repeat(${Math.min(stats.length, 4)},1fr)` }}
+          >
             {stats.map((s, i) => (
-              <div key={i} className="glass-card" style={{ padding: '16px 14px', border: '1px solid rgba(255,255,255,.85)' }}>
-                <div style={{ fontSize: 24, lineHeight: 1, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{s.value ?? s.n ?? '-'}</div>
-                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{s.label || s.l || 'Göstərici'}</div>
+              <div key={i} className="pr-stat">
+                <div className="pr-stat-v" style={{ color: acc }}>
+                  {s.v ?? s.value ?? s.n ?? '-'}
+                </div>
+                <div className="pr-stat-l">{s.l ?? s.label ?? 'Göstərici'}</div>
               </div>
             ))}
           </div>
         )}
 
-        <div className="mobile-col" style={{ display: 'flex', gap: 18, alignItems: 'stretch', position: 'relative', zIndex: 2 }}>
-          <div style={{ flex: 1.15, display: 'grid', gap: 18 }}>
-            <InfoBlock title="Görülən işlər" accent={acc} items={done} emptyText="Bu bölmə üzrə qeyd yoxdur" icon="✓" />
-
-            <div style={{ display: 'grid', gap: 18 }}>
-              {hasGantt ? (
-                <GanttChart planned={plannedObjects} acc={acc} />
-              ) : (
-                <InfoBlock title="Planlaşdırılan işlər" accent={acc} items={plannedTexts.filter(Boolean)} emptyText="Plan məlumatı yoxdur" icon="⏳" />
-              )}
+        <div className="pr-cols2">
+          <div className="pr-gpanel">
+            <div className="pr-panel-hd" style={{ color: acc }}>
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>✓</span>
+              Görülən işlər
             </div>
+
+            <ul className="pr-ilist">
+              {done.length ? (
+                done.map((d, i) => (
+                  <li key={i}>
+                    <span className="pr-im" style={{ color: '#16a34a' }}>✓</span>
+                    <span>{d}</span>
+                  </li>
+                ))
+              ) : (
+                <div className="pr-empty-txt">Məlumat yoxdur</div>
+              )}
+            </ul>
           </div>
 
-          <div style={{ flex: 0.95, display: 'grid', gap: 18 }}>
-            {screenshots.length > 0 ? (
-              <div className="glass-card" style={{ padding: 18, border: '1px solid rgba(255,255,255,.85)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: acc }}>
-                    🖼️ Ekran görüntüləri
-                  </div>
-                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{screenshots.length} fayl</div>
-                </div>
+          <div className="pr-gpanel">
+            <div className="pr-panel-hd" style={{ color: acc }}>
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>›</span>
+              Planlaşdırılan işlər
+            </div>
 
-                <div className="mobile-grid-1" style={{ display: 'grid', gridTemplateColumns: screenshots.length > 1 ? 'repeat(2,1fr)' : '1fr', gap: 12 }}>
-                  {screenshots.map((src, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setLightbox(i)}
-                      style={{
-                        padding: 0,
-                        border: 'none',
-                        background: '#fff',
-                        cursor: 'pointer',
-                        borderRadius: 18,
-                        overflow: 'hidden',
-                        boxShadow: '0 10px 28px rgba(15,23,42,.08)'
-                      }}
-                    >
-                      <img
-                        src={src}
-                        alt={`${p.name} screenshot ${i + 1}`}
-                        style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="glass-card" style={{ padding: 22, minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', textAlign: 'center', border: '1px solid rgba(255,255,255,.85)' }}>
-                Bu platforma üçün ekran görüntüsü əlavə edilməyib
-              </div>
+            {!hasGantt && (
+              <ul className="pr-ilist">
+                {plannedTexts.filter(Boolean).length ? (
+                  plannedTexts.filter(Boolean).map((t, i) => (
+                    <li key={i}>
+                      <span className="pr-im" style={{ color: acc }}>›</span>
+                      <span>{t}</span>
+                    </li>
+                  ))
+                ) : (
+                  <div className="pr-empty-txt">Məlumat yoxdur</div>
+                )}
+              </ul>
             )}
+
+            {hasGantt && <GanttChart planned={plannedObjects} acc={acc} />}
           </div>
         </div>
+
+        {screenshots.length > 0 && (
+          <div className="pr-gpanel" style={{ marginTop: 12 }}>
+            <div className="pr-panel-hd" style={{ color: acc }}>
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>📷</span>
+              Ekran görüntüləri
+            </div>
+
+            <div className="pr-ss-grid">
+              {screenshots.map((src, i) => (
+                <button
+                  key={i}
+                  className="pr-ss-thumb"
+                  onClick={() => setLightbox(i)}
+                  type="button"
+                >
+                  <img src={src} alt={`${p.name} screenshot ${i + 1}`} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {p.issue && (
+          <div className="pr-issue">
+            <span>⚠️</span>
+            <span>{p.issue}</span>
+          </div>
+        )}
       </div>
 
       {lightbox !== null && (
@@ -899,88 +495,122 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
           images={screenshots}
           index={lightbox}
           onClose={() => setLightbox(null)}
-          accentColor={acc}
         />
       )}
     </>
   )
 }
 
-function InfoBlock({ title, accent, items, emptyText, icon }) {
+function GanttChart({ planned, acc }) {
+  const items = planned?.filter(item => item && typeof item === 'object' && item.start_month) || []
+  if (!items.length) return null
+
   return (
-    <div className="glass-card" style={{ padding: 18, border: '1px solid rgba(255,255,255,.85)' }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: accent, marginBottom: 14 }}>
-        {icon} {title}
+    <>
+      <div className="pr-gantt-wrap">
+        <table className="pr-gtbl">
+          <thead>
+            <tr>
+              <th className="pr-gnh" />
+              {MONTHS_AZ.map((m, i) => (
+                <th key={i}>{m}</th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {items.map((item, ri) => {
+              const start = Math.min(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
+              const end = Math.max(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
+
+              return (
+                <tr key={ri}>
+                  <td className="pr-gnd">{item.text}</td>
+
+                  {MONTHS_AZ.map((_, mi) => {
+                    const inRange = mi >= start && mi <= end
+                    const isMsEnd = item.is_milestone && mi === end
+
+                    return (
+                      <td key={mi}>
+                        <div className="pr-gcl" />
+
+                        {inRange && (
+                          <div
+                            className="pr-gbar"
+                            style={{
+                              background: `${acc}2a`,
+                              border: `1px solid ${acc}55`
+                            }}
+                          />
+                        )}
+
+                        {isMsEnd && (
+                          <>
+                            <div className="pr-gms" />
+                            {item.milestone_label && (
+                              <div className="pr-gms-l">{item.milestone_label}</div>
+                            )}
+                          </>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
-      {items?.length ? (
-        <div style={{ display: 'grid', gap: 10 }}>
-          {items.map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 16, background: '#fff', border: '1px solid rgba(148,163,184,.12)' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: accent, marginTop: 6, flexShrink: 0 }} />
-              <div style={{ fontSize: 14, lineHeight: 1.55, color: '#334155' }}>{typeof item === 'string' ? item : item?.text || item?.label || '—'}</div>
-            </div>
-          ))}
+      <div className="pr-gleg">
+        <div className="pr-gleg-i">
+          <div className="pr-gleg-bar" style={{ background: `${acc}2a`, border: `1px solid ${acc}55` }} />
+          Planlaşdırılan
         </div>
-      ) : (
-        <div style={{ fontSize: 14, color: '#94a3b8' }}>{emptyText}</div>
-      )}
-    </div>
+
+        <div className="pr-gleg-i">
+          <div className="pr-gleg-ms" />
+          Milestone
+        </div>
+      </div>
+    </>
   )
 }
 
-function Sidebar({ platforms, currentSlide, goToSlide, className = '' }) {
+function Sidebar({ platforms, currentSlide, goToSlide }) {
   return (
-    <aside
-      className={className}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        bottom: 0,
-        width: 72,
-        zIndex: 700,
-        background: 'rgba(15,23,42,.88)',
-        backdropFilter: 'blur(20px)',
-        borderRight: '1px solid rgba(255,255,255,.08)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '14px 10px'
-      }}
-    >
-      <div style={{ width: 42, height: 42, borderRadius: 14, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, marginBottom: 18 }}>
-        RP
-      </div>
+    <aside className="pr-sidebar">
+      <div className="pr-sb-brand">RP</div>
+      <div className="pr-sb-label">Platform</div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', alignItems: 'center', overflowY: 'auto', paddingBottom: 10 }}>
+      <div className="pr-dot-nav">
         {platforms.map((p, idx) => {
-          const active = idx === currentSlide
+          const isActive = idx === currentSlide
           const acc = p.color || '#6366f1'
 
           return (
             <button
               key={p.id || idx}
+              className={`pr-nav-icon ${isActive ? 'on' : ''}`}
+              data-label={p.name}
+              aria-label={p.name}
               onClick={() => goToSlide(idx)}
-              title={p.name}
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 14,
-                border: active ? `1.5px solid ${acc}` : '1px solid rgba(255,255,255,.08)',
-                background: active ? `${acc}20` : 'rgba(255,255,255,.03)',
-                color: active ? '#fff' : 'rgba(255,255,255,.65)',
-                cursor: 'pointer',
-                fontSize: 11,
-                fontWeight: 700,
-                transition: 'all .25s ease',
-                overflow: 'hidden'
-              }}
+              style={isActive ? { background: `linear-gradient(135deg, ${acc}, #61c7ff)` } : {}}
             >
               {p.logo_url ? (
-                <img src={p.logo_url} alt={p.name} style={{ width: '68%', height: '68%', objectFit: 'contain' }} />
+                <img
+                  src={p.logo_url}
+                  alt=""
+                  style={{
+                    maxWidth: 24,
+                    maxHeight: 20,
+                    objectFit: 'contain',
+                    filter: isActive ? 'brightness(0) invert(1)' : 'none'
+                  }}
+                />
               ) : (
-                (p.name || '?').slice(0, 2).toUpperCase()
+                <span>{p.short || p.name?.slice(0, 2)}</span>
               )}
             </button>
           )
@@ -990,190 +620,1255 @@ function Sidebar({ platforms, currentSlide, goToSlide, className = '' }) {
   )
 }
 
-function ProgressBar() {
-  const [progress, setProgress] = useState(0)
-
-  useEffect(() => {
-    const onScroll = () => {
-      const scrollTop = window.scrollY
-      const height = document.documentElement.scrollHeight - window.innerHeight
-      setProgress(height > 0 ? (scrollTop / height) * 100 : 0)
-    }
-
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 3, zIndex: 9999, background: 'rgba(255,255,255,.08)' }}>
-      <div
-        style={{
-          width: `${progress}%`,
-          height: '100%',
-          background: 'linear-gradient(90deg,#6366f1,#8b5cf6,#22c55e)',
-          transition: 'width .1s linear'
-        }}
-      />
-    </div>
-  )
-}
-
-function CursorGlow() {
-  const [pos, setPos] = useState({ x: -200, y: -200 })
-
-  useEffect(() => {
-    const move = (e) => setPos({ x: e.clientX, y: e.clientY })
-    window.addEventListener('mousemove', move)
-    return () => window.removeEventListener('mousemove', move)
-  }, [])
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        left: pos.x - 180,
-        top: pos.y - 180,
-        width: 360,
-        height: 360,
-        borderRadius: '50%',
-        pointerEvents: 'none',
-        background: 'radial-gradient(circle, rgba(99,102,241,.12) 0%, rgba(99,102,241,.06) 28%, transparent 70%)',
-        filter: 'blur(8px)',
-        zIndex: 1,
-        transition: 'left .08s linear, top .08s linear'
-      }}
-    />
-  )
-}
-
-function Lightbox({ images, index, onClose, accentColor }) {
+function Lightbox({ images, index, onClose }) {
   const [current, setCurrent] = useState(index)
-  const acc = accentColor || '#6366f1'
 
-  const prev = useCallback(() => setCurrent((c) => (c - 1 + images.length) % images.length), [images.length])
-  const next = useCallback(() => setCurrent((c) => (c + 1) % images.length), [images.length])
+  const prev = useCallback(() => setCurrent(c => (c - 1 + images.length) % images.length), [images.length])
+  const next = useCallback(() => setCurrent(c => (c + 1) % images.length), [images.length])
 
   useEffect(() => {
-    const fn = (e) => {
+    const onKey = e => {
       if (e.key === 'Escape') onClose()
       if (e.key === 'ArrowLeft') prev()
       if (e.key === 'ArrowRight') next()
     }
 
-    window.addEventListener('keydown', fn)
+    window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
 
     return () => {
-      window.removeEventListener('keydown', fn)
+      window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
   }, [onClose, prev, next])
 
   return (
-    <div
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        background: 'rgba(10,10,20,0.93)',
-        backdropFilter: 'blur(14px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-        animation: 'lbIn .22s ease'
-      }}
-    >
-      <button
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          top: 20,
-          right: 20,
-          width: 44,
-          height: 44,
-          borderRadius: '50%',
-          background: 'rgba(255,255,255,0.1)',
-          border: '1.5px solid rgba(255,255,255,0.2)',
-          color: '#fff',
-          fontSize: 20,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10
-        }}
-      >
-        ✕
-      </button>
-
+    <div className="pr-lb on" onClick={e => e.target === e.currentTarget && onClose()}>
       {images.length > 1 && (
-        <div style={{ position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)', fontSize: 13, color: 'rgba(255,255,255,.85)', fontWeight: 600, letterSpacing: '.05em' }}>
-          {current + 1} / {images.length}
-        </div>
-      )}
-
-      {images.length > 1 && (
-        <button
-          onClick={prev}
-          style={{
-            position: 'absolute',
-            left: 20,
-            width: 52,
-            height: 52,
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.1)',
-            border: '1.5px solid rgba(255,255,255,0.2)',
-            color: '#fff',
-            fontSize: 26,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
+        <button className="pr-lb-nav pr-lb-nav-left" onClick={prev}>
           ‹
         </button>
       )}
 
-      <img
-        key={current}
-        src={images[current]}
-        alt=""
-        style={{
-          maxWidth: '85vw',
-          maxHeight: '80vh',
-          objectFit: 'contain',
-          borderRadius: 16,
-          boxShadow: '0 32px 80px rgba(0,0,0,.6)',
-          animation: 'imgIn .22s ease'
-        }}
-      />
+      <img className="pr-lb-img" src={images[current]} alt="" />
 
       {images.length > 1 && (
-        <button
-          onClick={next}
-          style={{
-            position: 'absolute',
-            right: 20,
-            width: 52,
-            height: 52,
-            borderRadius: '50%',
-            background: acc,
-            border: `1.5px solid ${acc}`,
-            color: '#fff',
-            fontSize: 26,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
+        <button className="pr-lb-nav pr-lb-nav-right" onClick={next}>
           ›
         </button>
       )}
+
+      <button className="pr-lb-x" onClick={onClose}>✕</button>
     </div>
+  )
+}
+
+function HeroCanvas() {
+  const canvasRef = useRef(null)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const wrap = wrapRef.current
+    if (!canvas || !wrap) return
+
+    const ctx = canvas.getContext('2d')
+    let animationFrame = null
+    let w = 0
+    let h = 0
+    let t = 0
+    let mx = 0.5
+    let my = 0.5
+
+    const colors = ['#7c5cff', '#4f7cff', '#36b7ff', '#15c39a', '#a78bfa']
+
+    function resize() {
+      w = canvas.width = window.innerWidth
+      h = canvas.height = wrap.offsetHeight
+    }
+
+    function draw() {
+      t += 0.008
+      ctx.clearRect(0, 0, w, h)
+
+      const grd = ctx.createLinearGradient(0, 0, 0, h)
+      grd.addColorStop(0, '#060816')
+      grd.addColorStop(0.45, '#091126')
+      grd.addColorStop(1, '#07091a')
+      ctx.fillStyle = grd
+      ctx.fillRect(0, 0, w, h)
+
+      for (let i = 0; i < 26; i++) {
+        const x = (w * (i / 26)) + Math.sin(t + i) * 40 + (mx / w) * 20
+        const y = h * 0.3 + Math.cos(t * 1.2 + i * 0.7) * 120 + (my / h) * 20
+        const r = 80 + (i % 5) * 18
+
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+        g.addColorStop(0, `${colors[i % colors.length]}40`)
+        g.addColorStop(1, `${colors[i % colors.length]}00`)
+        ctx.fillStyle = g
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      for (let i = 0; i < 80; i++) {
+        const x = (Math.sin(i * 19.23 + t * 2.2) * 0.5 + 0.5) * w
+        const y = (Math.cos(i * 11.71 + t * 1.5) * 0.5 + 0.5) * h
+        const size = 1 + (i % 3)
+
+        ctx.fillStyle = 'rgba(255,255,255,0.25)'
+        ctx.beginPath()
+        ctx.arc(x, y, size, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      animationFrame = requestAnimationFrame(draw)
+    }
+
+    function handleMove(e) {
+      mx = e.clientX
+      my = e.clientY
+    }
+
+    window.addEventListener('resize', resize)
+    window.addEventListener('mousemove', handleMove)
+    resize()
+    draw()
+
+    return () => {
+      window.removeEventListener('resize', resize)
+      window.removeEventListener('mousemove', handleMove)
+      if (animationFrame) cancelAnimationFrame(animationFrame)
+    }
+  }, [])
+
+  return (
+    <div ref={wrapRef} className="pr-canvas-wrap" aria-hidden="true">
+      <canvas ref={canvasRef} className="pr-canvas" />
+    </div>
+  )
+}
+
+function GlobalStyles() {
+  return (
+    <style>{`
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+        background: #07091a;
+        color: #eff4ff;
+        overflow-x: hidden;
+      }
+
+      .pr-shell {
+        --bg: #07091a;
+        --text: #eff4ff;
+        --muted: #b9c6e3;
+        --glass: rgba(255,255,255,.07);
+        --glass-b: rgba(255,255,255,.13);
+        --content: min(1200px,calc(100vw - 120px));
+        --sidebar: 92px;
+        --purple: #7c5cff;
+        --indigo: #4f7cff;
+        --blue: #36b7ff;
+        --green: #15c39a;
+        --amber: #f5a524;
+        position: relative;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      body.pr-light .pr-shell {
+        --bg: #eef2ff;
+        --text: #0f172a;
+        --muted: #50627f;
+        --glass: rgba(255,255,255,.68);
+        --glass-b: rgba(120,138,170,.18);
+      }
+
+      .pr-loading,
+      .pr-empty {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 14px;
+        text-align: center;
+        padding: 40px;
+      }
+
+      .pr-empty h2 { margin: 0; font-size: 24px; color: #0f172a; }
+      .pr-empty p { margin: 0; color: #6b7280; }
+
+      .pr-spinner {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: 3px solid rgba(255,255,255,.18);
+        border-top-color: #7c5cff;
+        animation: pr-spin .85s linear infinite;
+      }
+
+      @keyframes pr-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .pr-canvas-wrap {
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 110vh;
+        min-height: 780px;
+        overflow: hidden;
+        z-index: 0;
+      }
+
+      .pr-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .pr-hero {
+        position: relative;
+        min-height: 100vh;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+      }
+
+      .pr-hero-fade {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom,
+          rgba(7,9,26,0) 0%,
+          rgba(7,9,26,.2) 35%,
+          rgba(7,9,26,.75) 65%,
+          rgba(7,9,26,1) 100%);
+        z-index: 1;
+      }
+
+      .pr-hero-content {
+        position: relative;
+        z-index: 2;
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 94px 72px 72px calc(var(--sidebar) + 52px);
+      }
+
+      .pr-hero-ey {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,.38);
+        margin-bottom: 18px;
+        animation: pr-rU .8s .1s ease both;
+      }
+
+      .pr-hero-ey-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 10px var(--green);
+        animation: pr-gp 2.5s infinite;
+      }
+
+      @keyframes pr-gp {
+        0%,100% { opacity: 1; transform: scale(1); }
+        50% { opacity: .4; transform: scale(.7); }
+      }
+
+      .pr-hero-h1 {
+        font-size: clamp(52px,8vw,92px);
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -.045em;
+        color: #fff;
+        margin: 0 0 12px;
+        animation: pr-rU .9s .25s ease both;
+      }
+
+      .pr-hero-h1 .gr {
+        background: linear-gradient(110deg,#c4b5fd 0%,#818cf8 45%,#38bdf8 85%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .pr-hero-sub {
+        font-size: 16px;
+        font-weight: 300;
+        color: rgba(255,255,255,.38);
+        margin: 0 0 34px;
+        letter-spacing: -.01em;
+        animation: pr-rU .9s .4s ease both;
+      }
+
+      .pr-hero-kpis {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        animation: pr-rU .9s .55s ease both;
+      }
+
+      .pr-kpi {
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 14px;
+        padding: 18px 24px;
+        backdrop-filter: blur(20px);
+        min-width: 110px;
+        transition: background .25s, transform .25s;
+      }
+
+      .pr-kpi:hover {
+        background: rgba(255,255,255,.09);
+        transform: translateY(-3px);
+      }
+
+      .pr-kpi-n {
+        font-size: 34px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -.04em;
+        color: #fff;
+      }
+
+      .pr-kpi-l {
+        font-size: 10px;
+        color: rgba(255,255,255,.32);
+        margin-top: 6px;
+        font-weight: 400;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }
+
+      @keyframes pr-rU {
+        from { opacity: 0; transform: translateY(28px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .pr-sidebar {
+        position: fixed;
+        left: 14px;
+        top: 14px;
+        bottom: 14px;
+        width: 68px;
+        padding: 14px 8px;
+        border-radius: 26px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        z-index: 200;
+        background: linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));
+        border: 1px solid var(--glass-b);
+        backdrop-filter: blur(28px) saturate(1.6);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.18),0 20px 50px rgba(0,0,5,.3);
+      }
+
+      .pr-sb-brand {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 13px;
+        background: linear-gradient(135deg,rgba(124,92,255,.95),rgba(54,183,255,.88));
+        box-shadow: 0 10px 28px rgba(86,88,214,.35);
+        color: #fff;
+        flex-shrink: 0;
+      }
+
+      .pr-sb-label {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        color: rgba(255,255,255,.38);
+        font-size: 10px;
+        letter-spacing: .2em;
+        text-transform: uppercase;
+        margin-top: 6px;
+      }
+
+      .pr-dot-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: auto 0;
+      }
+
+      .pr-nav-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.18);
+        background: rgba(255,255,255,.08);
+        color: #fff;
+        cursor: pointer;
+        transition: all .28s cubic-bezier(.23,1,.32,1);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+      }
+
+      .pr-nav-icon:hover {
+        transform: translateY(-2px) scale(1.06);
+        background: rgba(255,255,255,.14);
+      }
+
+      .pr-nav-icon::after {
+        content: attr(data-label);
+        position: absolute;
+        left: calc(100% + 12px);
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(15,18,40,.9);
+        color: #fff;
+        font-size: 11px;
+        white-space: nowrap;
+        padding: 4px 10px;
+        border-radius: 8px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s;
+        border: 1px solid rgba(255,255,255,.1);
+      }
+
+      .pr-nav-icon:hover::after { opacity: 1; }
+      .pr-nav-icon.on { box-shadow: 0 0 0 4px rgba(255,255,255,.08),0 10px 24px rgba(68,111,255,.28); }
+
+      .pr-topbar {
+        position: fixed;
+        top: 12px;
+        right: 14px;
+        z-index: 250;
+        margin: 0 14px 0 calc(var(--sidebar) + 26px);
+        min-height: 60px;
+        padding: 10px 20px;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        background: linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07));
+        border: 1px solid var(--glass-b);
+        backdrop-filter: blur(28px) saturate(1.6);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.2),0 12px 32px rgba(0,0,10,.2);
+      }
+
+      .pr-topbar-brand {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -.015em;
+      }
+
+      .pr-topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+      }
+
+      .pr-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 14px;
+        border-radius: 100px;
+        color: rgba(239,244,255,.85);
+        font-size: 12px;
+        font-weight: 500;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.06);
+      }
+
+      .pr-chip-btn {
+        cursor: pointer;
+      }
+
+      .pr-chip-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #15c39a;
+        box-shadow: 0 0 0 5px rgba(21,195,154,.14);
+      }
+
+      .pr-picker-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+      }
+
+      .pr-picker {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        min-width: 220px;
+        z-index: 101;
+        background: rgba(15,18,40,.98);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 18px 42px rgba(0,0,0,.35);
+      }
+
+      .pr-picker-item {
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: #fff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 16px;
+        cursor: pointer;
+        text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+      }
+
+      .pr-picker-item.is-active {
+        background: rgba(124,92,255,.18);
+      }
+
+      .pr-wrap {
+        margin-left: calc(var(--sidebar) + 18px);
+        padding: 0 14px;
+        position: relative;
+        z-index: 2;
+      }
+
+      .pr-section {
+        padding: 56px 58px 80px;
+      }
+
+      .pr-sec-kicker {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,.32);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .pr-sec-kicker::before {
+        content: '';
+        width: 28px;
+        height: 1px;
+        background: linear-gradient(90deg,rgba(124,92,255,.8),transparent);
+      }
+
+      .pr-sec-h2 {
+        margin: 0 0 10px;
+        font-size: clamp(30px,4vw,48px);
+        font-weight: 700;
+        letter-spacing: -.04em;
+        color: #fff;
+        line-height: 1.06;
+      }
+
+      .pr-sec-desc {
+        margin: 0 0 44px;
+        font-size: 15px;
+        color: var(--muted);
+        font-weight: 300;
+        line-height: 1.6;
+      }
+
+      .pr-ov-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill,minmax(240px,1fr));
+        gap: 14px;
+      }
+
+      .pr-ov-card {
+        border: none;
+        border-radius: 22px;
+        padding: 20px 26px 24px;
+        cursor: pointer;
+        background: linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.05));
+        border: 1px solid var(--glass-b);
+        backdrop-filter: blur(18px);
+        transition: transform .12s linear, box-shadow .12s linear, border-color .12s linear;
+        position: relative;
+        overflow: hidden;
+        color: inherit;
+        display: block;
+        text-align: left;
+      }
+
+      .pr-ov-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        border-radius: 22px 22px 0 0;
+        background: var(--ov-accent, linear-gradient(90deg,#16a34a,#22c55e));
+      }
+
+      .pr-ov-card:hover {
+        transform: translate3d(0,-4px,0) scale(1.018);
+        box-shadow: 0 16px 34px rgba(0,0,0,.24);
+      }
+
+      .pr-ov-num {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: .08em;
+        color: rgba(255,255,255,.22);
+        margin-bottom: 28px;
+      }
+
+      .pr-ov-logo {
+        height: 38px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .pr-ov-logo img {
+        max-height: 38px;
+        max-width: 130px;
+        object-fit: contain;
+        object-position: left;
+      }
+
+      .pr-ov-name {
+        font-size: 17px;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: -.02em;
+        margin-bottom: 18px;
+      }
+
+      .pr-ov-tag {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 300;
+        line-height: 1.6;
+        margin-bottom: 26px;
+        max-width: 220px;
+      }
+
+      .pr-ov-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 14px;
+        border-radius: 100px;
+        color: #fff;
+        background: #129a17;
+      }
+
+      .pr-ov-badge-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #fff;
+      }
+
+      .pr-divider {
+        height: 1px;
+        margin: 0 58px;
+        background: linear-gradient(90deg,transparent,rgba(255,255,255,.08) 20%,rgba(255,255,255,.08) 80%,transparent);
+      }
+
+      .pr-plat-list {
+        display: grid;
+        gap: 20px;
+      }
+
+      .pr-plat-card {
+        border-radius: 28px;
+        padding: 28px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04));
+        border: 1px solid var(--glass-b);
+        backdrop-filter: blur(20px);
+        color: var(--text);
+        transition: transform .34s cubic-bezier(.23,1,.32,1), box-shadow .34s ease, border-color .34s ease;
+      }
+
+      .pr-plat-card:hover {
+        transform: translateY(-8px) scale(1.012);
+        box-shadow: 0 28px 64px rgba(8,15,40,.24);
+      }
+
+      .pr-plat-glow {
+        position: absolute;
+        right: -100px;
+        top: -100px;
+        width: 350px;
+        height: 350px;
+        border-radius: 50%;
+        filter: blur(60px);
+        pointer-events: none;
+        opacity: .1;
+      }
+
+      .pr-plat-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .pr-plat-head-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .pr-plat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        flex-shrink: 0;
+        border: 1px solid rgba(255,255,255,.1);
+      }
+
+      .pr-plat-icon img {
+        max-width: 30px;
+        max-height: 26px;
+        object-fit: contain;
+      }
+
+      .pr-plat-name {
+        font-size: 24px;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: -.035em;
+        margin-bottom: 3px;
+      }
+
+      .pr-plat-tag {
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 300;
+      }
+
+      .pr-plat-nav {
+        display: flex;
+        gap: 8px;
+      }
+
+      .pr-plat-nav button {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 13px;
+        background: rgba(255,255,255,.08);
+        color: var(--text);
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .pr-plat-idx {
+        font-size: 72px;
+        font-weight: 700;
+        letter-spacing: -.06em;
+        color: rgba(255,255,255,.04);
+        line-height: 1;
+        user-select: none;
+      }
+
+      .pr-stat-row {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .pr-stat {
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 16px;
+        padding: 18px 20px;
+      }
+
+      .pr-stat-v {
+        font-size: 28px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -.04em;
+        margin-bottom: 5px;
+      }
+
+      .pr-stat-l {
+        font-size: 11px;
+        color: rgba(255,255,255,.38);
+        font-weight: 400;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+
+      .pr-cols2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .pr-gpanel {
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 20px;
+        padding: 22px;
+        backdrop-filter: blur(12px);
+      }
+
+      .pr-panel-hd {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+      }
+
+      .pr-panel-hd-ico {
+        width: 20px;
+        height: 20px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+      }
+
+      .pr-ilist {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .pr-ilist li {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 13.5px;
+        color: rgba(239,244,255,.78);
+        padding: 8px 0;
+        line-height: 1.55;
+        font-weight: 300;
+        border-bottom: 1px solid rgba(255,255,255,.05);
+      }
+
+      .pr-ilist li:last-child {
+        border-bottom: none;
+      }
+
+      .pr-im {
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .pr-empty-txt {
+        font-size: 13px;
+        color: rgba(255,255,255,.25);
+        font-style: italic;
+        padding: 6px 0;
+      }
+
+      .pr-gantt-wrap {
+        overflow-x: auto;
+        margin-top: 4px;
+      }
+
+      .pr-gtbl {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 580px;
+      }
+
+      .pr-gtbl th {
+        font-size: 10px;
+        color: rgba(255,255,255,.28);
+        font-weight: 400;
+        text-align: center;
+        padding-bottom: 8px;
+        min-width: 40px;
+      }
+
+      .pr-gnh {
+        text-align: left !important;
+        min-width: 130px;
+      }
+
+      .pr-gtbl td {
+        height: 30px;
+        position: relative;
+      }
+
+      .pr-gnd {
+        font-size: 12px;
+        color: rgba(239,244,255,.7);
+        font-weight: 300;
+        padding-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 130px;
+      }
+
+      .pr-gcl {
+        position: absolute;
+        right: 0;
+        top: 3px;
+        bottom: 3px;
+        width: 1px;
+        background: rgba(255,255,255,.05);
+      }
+
+      .pr-gbar {
+        position: absolute;
+        left: 2px;
+        right: 2px;
+        top: 50%;
+        height: 9px;
+        border-radius: 3px;
+        transform: translateY(-50%);
+      }
+
+      .pr-gms {
+        position: absolute;
+        right: -5px;
+        top: 50%;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        background: var(--amber);
+        transform: translateY(-50%) rotate(45deg);
+        z-index: 2;
+        box-shadow: 0 0 8px rgba(245,165,36,.5);
+      }
+
+      .pr-gms-l {
+        position: absolute;
+        right: 0;
+        bottom: calc(50% + 9px);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--amber);
+        white-space: nowrap;
+        z-index: 3;
+      }
+
+      .pr-gleg {
+        display: flex;
+        gap: 18px;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255,255,255,.06);
+      }
+
+      .pr-gleg-i {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: rgba(255,255,255,.35);
+      }
+
+      .pr-gleg-bar {
+        width: 18px;
+        height: 7px;
+        border-radius: 2px;
+      }
+
+      .pr-gleg-ms {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--amber);
+        transform: rotate(45deg);
+        flex-shrink: 0;
+      }
+
+      .pr-ss-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill,minmax(150px,1fr));
+        gap: 10px;
+        margin-top: 4px;
+      }
+
+      .pr-ss-thumb {
+        aspect-ratio: 16 / 10;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.1);
+        cursor: pointer;
+        transition: transform .25s, box-shadow .25s, border-color .25s;
+        background: transparent;
+        padding: 0;
+      }
+
+      .pr-ss-thumb:hover {
+        transform: scale(1.04);
+        box-shadow: 0 16px 40px rgba(0,0,0,.5);
+        border-color: rgba(255,255,255,.25);
+      }
+
+      .pr-ss-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .pr-issue {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: rgba(245,165,36,.07);
+        border: 1px solid rgba(245,165,36,.2);
+        border-radius: 14px;
+        padding: 13px 16px;
+        font-size: 13px;
+        color: rgba(245,165,36,.9);
+        margin-top: 12px;
+        line-height: 1.55;
+      }
+
+      .pr-lb {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(0,0,0,.90);
+        backdrop-filter: blur(24px);
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .pr-lb-img {
+        max-width: 88vw;
+        max-height: 84vh;
+        object-fit: contain;
+        border-radius: 14px;
+      }
+
+      .pr-lb-x,
+      .pr-lb-nav {
+        position: fixed;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: rgba(255,255,255,.1);
+        border: 1px solid rgba(255,255,255,.15);
+        color: #fff;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pr-lb-x {
+        top: 20px;
+        right: 20px;
+      }
+
+      .pr-lb-nav-left {
+        left: 20px;
+      }
+
+      .pr-lb-nav-right {
+        right: 20px;
+      }
+
+      .pr-footer {
+        margin: 0 14px 14px calc(var(--sidebar) + 26px);
+        padding: 24px 28px;
+        border-radius: 22px;
+        background: linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));
+        border: 1px solid var(--glass-b);
+        backdrop-filter: blur(20px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        position: relative;
+        z-index: 2;
+      }
+
+      .pr-footer-brand {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -.03em;
+        color: #fff;
+      }
+
+      .pr-footer-meta {
+        font-size: 12px;
+        color: rgba(255,255,255,.28);
+        text-align: right;
+        line-height: 1.8;
+        font-weight: 300;
+      }
+
+      .pr-rv {
+        opacity: 0;
+        transform: translateY(28px);
+        transition: opacity .65s ease, transform .65s ease;
+      }
+
+      .pr-rv-in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      body.pr-light .pr-topbar,
+      body.pr-light .pr-sidebar,
+      body.pr-light .pr-ov-card,
+      body.pr-light .pr-plat-card,
+      body.pr-light .pr-gpanel,
+      body.pr-light .pr-stat,
+      body.pr-light .pr-kpi,
+      body.pr-light .pr-chip,
+      body.pr-light .pr-footer {
+        background: linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,255,255,.68));
+        border-color: rgba(148,163,184,.2);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.65),0 14px 36px rgba(148,163,184,.14);
+      }
+
+      body.pr-light .pr-topbar-brand,
+      body.pr-light .pr-sec-h2,
+      body.pr-light .pr-plat-name,
+      body.pr-light .pr-footer-brand,
+      body.pr-light .pr-ov-name,
+      body.pr-light .pr-kpi-n {
+        color: #0f172a;
+      }
+
+      body.pr-light .pr-sec-desc,
+      body.pr-light .pr-ov-tag,
+      body.pr-light .pr-plat-tag,
+      body.pr-light .pr-footer-meta,
+      body.pr-light .pr-kpi-l,
+      body.pr-light .pr-stat-l,
+      body.pr-light .pr-ilist li,
+      body.pr-light .pr-gleg-i,
+      body.pr-light .pr-sb-label,
+      body.pr-light .pr-chip,
+      body.pr-light .pr-sec-kicker,
+      body.pr-light .pr-gnd {
+        color: #5b6b87;
+      }
+
+      body.pr-light .pr-plat-card {
+        color: #0f172a;
+      }
+
+      body.pr-light .pr-ov-num,
+      body.pr-light .pr-plat-idx {
+        color: rgba(15,23,42,.08);
+      }
+
+      body.pr-light .pr-divider {
+        background: linear-gradient(90deg,transparent,rgba(148,163,184,.18) 20%,rgba(148,163,184,.18) 80%,transparent);
+      }
+
+      body.pr-light .pr-gcl {
+        background: rgba(148,163,184,.16);
+      }
+
+      body.pr-light .pr-ilist li {
+        border-bottom: 1px solid rgba(148,163,184,.14);
+      }
+
+      body.pr-light .pr-panel-hd {
+        border-bottom: 1px solid rgba(148,163,184,.16);
+      }
+
+      body.pr-light .pr-nav-icon {
+        color: #1e293b;
+        background: rgba(255,255,255,.9);
+        border-color: rgba(148,163,184,.28);
+      }
+
+      @media (max-width: 900px) {
+        .pr-sidebar { display: none; }
+        .pr-topbar { margin-left: 14px; right: 14px; }
+        .pr-wrap { margin-left: 0; }
+        .pr-footer { margin-left: 14px; }
+        .pr-cols2 { grid-template-columns: 1fr; }
+        .pr-section { padding: 60px 24px; }
+        .pr-divider { margin: 0 24px; }
+        .pr-hero-content { padding: 84px 24px 56px; }
+      }
+
+      @media (max-width: 640px) {
+        .pr-topbar {
+          padding: 10px 14px;
+          gap: 10px;
+        }
+
+        .pr-topbar-brand {
+          display: none;
+        }
+
+        .pr-hero-kpis {
+          gap: 8px;
+        }
+
+        .pr-kpi {
+          min-width: calc(50% - 8px);
+          flex: 1 1 calc(50% - 8px);
+        }
+
+        .pr-stat-row {
+          grid-template-columns: repeat(2,1fr) !important;
+        }
+
+        .pr-ss-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    `}</style>
   )
 }
