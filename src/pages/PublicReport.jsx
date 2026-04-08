@@ -27,7 +27,6 @@ export default function PublicReport() {
   useEffect(() => {
     function handleScroll() {
       if (isAutoScrolling.current) return
-
       const cont = platRef.current
       if (!cont) return
 
@@ -42,13 +41,11 @@ export default function PublicReport() {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
-
     return () => window.removeEventListener('scroll', handleScroll)
   }, [report])
 
   async function fetchReports() {
     setLoading(true)
-
     const { data, error } = await supabase
       .from('published_reports')
       .select('*')
@@ -77,7 +74,6 @@ export default function PublicReport() {
 
     const navOffset = 88
     const y = target.getBoundingClientRect().top + window.scrollY - navOffset
-
     isAutoScrolling.current = true
     window.scrollTo({ top: y, behavior: 'smooth' })
 
@@ -90,9 +86,7 @@ export default function PublicReport() {
   function toggleSnap() {
     setSnapOn(prev => {
       const next = !prev
-      if (platRef.current) {
-        platRef.current.style.scrollSnapType = next ? 'y proximity' : 'none'
-      }
+      if (platRef.current) platRef.current.style.scrollSnapType = next ? 'y proximity' : 'none'
       return next
     })
   }
@@ -138,14 +132,9 @@ export default function PublicReport() {
   return (
     <div className="pr-shell">
       <GlobalStyles />
-
       <HeroCanvas />
 
-      <Sidebar
-        platforms={platforms}
-        currentSlide={currentSlide}
-        goToSlide={goToSlide}
-      />
+      <Sidebar platforms={platforms} currentSlide={currentSlide} goToSlide={goToSlide} />
 
       <header className="pr-topbar">
         <div className="pr-topbar-brand">Rəqəmsal Platformaların İdarəolunması Şöbəsi</div>
@@ -228,12 +217,7 @@ export default function PublicReport() {
 
           <div className="pr-ov-grid">
             {platforms.map((p, idx) => (
-              <OverviewCard
-                key={p.id || idx}
-                p={p}
-                idx={idx}
-                goToSlide={goToSlide}
-              />
+              <OverviewCard key={p.id || idx} p={p} idx={idx} goToSlide={goToSlide} />
             ))}
           </div>
         </section>
@@ -300,24 +284,19 @@ function OverviewCard({ p, idx, goToSlide }) {
   const accent = p.color || '#15c39a'
 
   return (
-    <button
-      className="pr-ov-card"
-      onClick={() => goToSlide(idx)}
-      style={{ '--ov-accent': accent }}
-    >
+    <button className="pr-ov-card" onClick={() => goToSlide(idx)} style={{ '--ov-accent': accent }}>
       <div className="pr-ov-num">{String(idx + 1).padStart(2, '0')}</div>
 
       <div className="pr-ov-logo">
         {p.logo_url ? (
           <img src={p.logo_url} alt={p.name} />
         ) : (
-          <div style={{ fontWeight: 700, color: '#fff', fontSize: 16 }}>{p.short || p.name}</div>
+          <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{p.short || p.name}</div>
         )}
       </div>
 
       <div className="pr-ov-name">{p.name}</div>
       <div className="pr-ov-tag">{p.tagline || p.tag || 'Platforma haqqında məlumat'}</div>
-
       <div className="pr-ov-badge">
         <span className="pr-ov-badge-dot" />
         {p.done?.length || 0} iş tamamlandı
@@ -332,17 +311,12 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
   const cardRef = useRef(null)
 
   const done = p.done || []
-  const rawPlanned = Array.isArray(p.planned) && p.planned.length
-    ? p.planned
-    : [
-        ...(p.plan_month || []),
-        ...(p.plan_quarter || []),
-        ...(p.plan_year || [])
-      ]
+  const rawPlanned =
+    Array.isArray(p.planned) && p.planned.length
+      ? p.planned
+      : [...(p.plan_month || []), ...(p.plan_quarter || []), ...(p.plan_year || [])]
 
-  const plannedObjects = rawPlanned.map(item =>
-    typeof item === 'string' ? { text: item } : item
-  )
+  const plannedObjects = rawPlanned.map(item => (typeof item === 'string' ? { text: item } : item))
   const plannedTexts = plannedObjects.map(item => item?.text || item?.label || '')
   const hasGantt = plannedObjects.some(item => item && typeof item === 'object' && item.start_month)
   const stats = p.stats || []
@@ -380,7 +354,11 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
         <div className="pr-plat-head">
           <div className="pr-plat-head-left">
             <div className="pr-plat-icon" style={{ background: `${acc}20`, color: acc }}>
-              {p.logo_url ? <img src={p.logo_url} alt={p.name} /> : <span>{p.short || p.name?.slice(0, 2)}</span>}
+              {p.logo_url ? (
+                <img src={p.logo_url} alt={p.name} />
+              ) : (
+                <span>{p.short || p.name?.slice(0, 2)}</span>
+              )}
             </div>
 
             <div>
@@ -391,6 +369,7 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
             <div className="pr-plat-idx">{String(idx + 1).padStart(2, '0')}</div>
+
             <div className="pr-plat-nav">
               <button onClick={() => goToSlide(Math.max(0, idx - 1))}>←</button>
               <button onClick={() => goToSlide(Math.min(total - 1, idx + 1))}>→</button>
@@ -399,10 +378,7 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
         </div>
 
         {stats.length > 0 && (
-          <div
-            className="pr-stat-row"
-            style={{ gridTemplateColumns: `repeat(${Math.min(stats.length, 4)},1fr)` }}
-          >
+          <div className="pr-stat-row" style={{ gridTemplateColumns: `repeat(${Math.min(stats.length, 4)},1fr)` }}>
             {stats.map((s, i) => (
               <div key={i} className="pr-stat">
                 <div className="pr-stat-v" style={{ color: acc }}>
@@ -414,71 +390,98 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
           </div>
         )}
 
-        <div className="pr-cols2">
+        <div className="pr-cols2 pr-cols2-swap">
           <div className="pr-gpanel">
             <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>✓</span>
-              Görülən işlər
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
+                ›
+              </span>
+              Planlaşdırılan işlər
             </div>
 
             <ul className="pr-ilist">
-              {done.length ? (
-                done.map((d, i) => (
-                  <li key={i}>
-                    <span className="pr-im" style={{ color: '#16a34a' }}>✓</span>
-                    <span>{d}</span>
-                  </li>
-                ))
+              {plannedTexts.filter(Boolean).length ? (
+                plannedTexts
+                  .filter(Boolean)
+                  .map((t, i) => (
+                    <li key={i}>
+                      <span className="pr-im" style={{ color: acc }}>
+                        ›
+                      </span>
+                      <span>{t}</span>
+                    </li>
+                  ))
               ) : (
                 <div className="pr-empty-txt">Məlumat yoxdur</div>
               )}
             </ul>
           </div>
 
-          <div className="pr-gpanel">
-            <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>›</span>
-              Planlaşdırılan işlər
+          {screenshots.length > 0 ? (
+            <div className="pr-gpanel pr-shot-panel">
+              <div className="pr-panel-hd" style={{ color: acc }}>
+                <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
+                  📷
+                </span>
+                Ekran görüntüləri
+              </div>
+
+              <div className="pr-ss-grid pr-ss-grid-compact">
+                {screenshots.map((src, i) => (
+                  <button key={i} className="pr-ss-thumb" onClick={() => setLightbox(i)} type="button">
+                    <img src={src} alt={`${p.name} screenshot ${i + 1}`} />
+                  </button>
+                ))}
+              </div>
             </div>
+          ) : (
+            <div className="pr-gpanel pr-empty-shot">
+              <div className="pr-panel-hd" style={{ color: acc }}>
+                <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
+                  📷
+                </span>
+                Ekran görüntüləri
+              </div>
 
-            {!hasGantt && (
-              <ul className="pr-ilist">
-                {plannedTexts.filter(Boolean).length ? (
-                  plannedTexts.filter(Boolean).map((t, i) => (
-                    <li key={i}>
-                      <span className="pr-im" style={{ color: acc }}>›</span>
-                      <span>{t}</span>
-                    </li>
-                  ))
-                ) : (
-                  <div className="pr-empty-txt">Məlumat yoxdur</div>
-                )}
-              </ul>
-            )}
-
-            {hasGantt && <GanttChart planned={plannedObjects} acc={acc} />}
-          </div>
+              <div className="pr-empty-txt">Ekran görüntüsü əlavə edilməyib</div>
+            </div>
+          )}
         </div>
 
-        {screenshots.length > 0 && (
+        <div className="pr-gpanel" style={{ marginTop: 12 }}>
+          <div className="pr-panel-hd" style={{ color: acc }}>
+            <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
+              ✓
+            </span>
+            Görülən işlər
+          </div>
+
+          <ul className="pr-ilist">
+            {done.length ? (
+              done.map((d, i) => (
+                <li key={i}>
+                  <span className="pr-im" style={{ color: '#16a34a' }}>
+                    ✓
+                  </span>
+                  <span>{d}</span>
+                </li>
+              ))
+            ) : (
+              <div className="pr-empty-txt">Məlumat yoxdur</div>
+            )}
+          </ul>
+        </div>
+
+        {hasGantt && (
           <div className="pr-gpanel" style={{ marginTop: 12 }}>
             <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>📷</span>
-              Ekran görüntüləri
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
+                📅
+              </span>
+              Gantt chart
             </div>
 
-            <div className="pr-ss-grid">
-              {screenshots.map((src, i) => (
-                <button
-                  key={i}
-                  className="pr-ss-thumb"
-                  onClick={() => setLightbox(i)}
-                  type="button"
-                >
-                  <img src={src} alt={`${p.name} screenshot ${i + 1}`} />
-                </button>
-              ))}
-            </div>
+            <GanttChart planned={plannedObjects} acc={acc} />
           </div>
         )}
 
@@ -490,13 +493,7 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
         )}
       </div>
 
-      {lightbox !== null && (
-        <Lightbox
-          images={screenshots}
-          index={lightbox}
-          onClose={() => setLightbox(null)}
-        />
-      )}
+      {lightbox !== null && <Lightbox images={screenshots} index={lightbox} onClose={() => setLightbox(null)} />}
     </>
   )
 }
@@ -520,8 +517,10 @@ function GanttChart({ planned, acc }) {
 
           <tbody>
             {items.map((item, ri) => {
-              const start = Math.min(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
-              const end = Math.max(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
+              const start =
+                Math.min(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
+              const end =
+                Math.max(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
 
               return (
                 <tr key={ri}>
@@ -548,9 +547,7 @@ function GanttChart({ planned, acc }) {
                         {isMsEnd && (
                           <>
                             <div className="pr-gms" />
-                            {item.milestone_label && (
-                              <div className="pr-gms-l">{item.milestone_label}</div>
-                            )}
+                            {item.milestone_label && <div className="pr-gms-l">{item.milestone_label}</div>}
                           </>
                         )}
                       </td>
@@ -622,7 +619,6 @@ function Sidebar({ platforms, currentSlide, goToSlide }) {
 
 function Lightbox({ images, index, onClose }) {
   const [current, setCurrent] = useState(index)
-
   const prev = useCallback(() => setCurrent(c => (c - 1 + images.length) % images.length), [images.length])
   const next = useCallback(() => setCurrent(c => (c + 1) % images.length), [images.length])
 
@@ -658,7 +654,9 @@ function Lightbox({ images, index, onClose }) {
         </button>
       )}
 
-      <button className="pr-lb-x" onClick={onClose}>✕</button>
+      <button className="pr-lb-x" onClick={onClose}>
+        ✕
+      </button>
     </div>
   )
 }
@@ -679,8 +677,7 @@ function HeroCanvas() {
     let t = 0
     let mx = 0.5
     let my = 0.5
-
-    const colors = ['#7c5cff', '#4f7cff', '#36b7ff', '#15c39a', '#a78bfa']
+    const colors = ['#7c5cff', '#5b7cff', '#46b7ff', '#19c78f', '#a78bfa']
 
     function resize() {
       w = canvas.width = window.innerWidth
@@ -692,19 +689,18 @@ function HeroCanvas() {
       ctx.clearRect(0, 0, w, h)
 
       const grd = ctx.createLinearGradient(0, 0, 0, h)
-      grd.addColorStop(0, '#060816')
-      grd.addColorStop(0.45, '#091126')
-      grd.addColorStop(1, '#07091a')
+      grd.addColorStop(0, '#0d1220')
+      grd.addColorStop(0.45, '#111a2d')
+      grd.addColorStop(1, '#0d1422')
       ctx.fillStyle = grd
       ctx.fillRect(0, 0, w, h)
 
       for (let i = 0; i < 26; i++) {
-        const x = (w * (i / 26)) + Math.sin(t + i) * 40 + (mx / w) * 20
+        const x = w * (i / 26) + Math.sin(t + i) * 40 + (mx / w) * 20
         const y = h * 0.3 + Math.cos(t * 1.2 + i * 0.7) * 120 + (my / h) * 20
         const r = 80 + (i % 5) * 18
-
         const g = ctx.createRadialGradient(x, y, 0, x, y, r)
-        g.addColorStop(0, `${colors[i % colors.length]}40`)
+        g.addColorStop(0, `${colors[i % colors.length]}38`)
         g.addColorStop(1, `${colors[i % colors.length]}00`)
         ctx.fillStyle = g
         ctx.beginPath()
@@ -716,8 +712,7 @@ function HeroCanvas() {
         const x = (Math.sin(i * 19.23 + t * 2.2) * 0.5 + 0.5) * w
         const y = (Math.cos(i * 11.71 + t * 1.5) * 0.5 + 0.5) * h
         const size = 1 + (i % 3)
-
-        ctx.fillStyle = 'rgba(255,255,255,0.25)'
+        ctx.fillStyle = 'rgba(255,255,255,0.18)'
         ctx.beginPath()
         ctx.arc(x, y, size, 0, Math.PI * 2)
         ctx.fill()
@@ -755,30 +750,31 @@ function GlobalStyles() {
     <style>{`
       * { box-sizing: border-box; }
       html { scroll-behavior: smooth; }
+
       body {
         margin: 0;
         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
-        background: #07091a;
-        color: #eff4ff;
+        background: #0d1220;
+        color: #eef4ff;
         overflow-x: hidden;
       }
 
       .pr-shell {
-        --bg: #07091a;
-        --text: #eff4ff;
-        --muted: #b9c6e3;
-        --glass: rgba(255,255,255,.07);
-        --glass-b: rgba(255,255,255,.13);
+        --bg: #0d1220;
+        --text: #eef4ff;
+        --muted: #a7b7d4;
+        --glass: rgba(255,255,255,.08);
+        --glass-b: rgba(255,255,255,.14);
         --content: min(1200px,calc(100vw - 120px));
         --sidebar: 92px;
         --purple: #7c5cff;
-        --indigo: #4f7cff;
-        --blue: #36b7ff;
-        --green: #15c39a;
+        --indigo: #5b7cff;
+        --blue: #46b7ff;
+        --green: #19c78f;
         --amber: #f5a524;
         position: relative;
         min-height: 100vh;
-        background: var(--bg);
+        background: radial-gradient(circle at top right, rgba(124,92,255,.08), transparent 28%), linear-gradient(180deg, #0d1220 0%, #10182a 55%, #0d1422 100%);
         color: var(--text);
       }
 
@@ -786,7 +782,7 @@ function GlobalStyles() {
         --bg: #eef2ff;
         --text: #0f172a;
         --muted: #50627f;
-        --glass: rgba(255,255,255,.68);
+        --glass: rgba(255,255,255,.72);
         --glass-b: rgba(120,138,170,.18);
       }
 
@@ -846,11 +842,7 @@ function GlobalStyles() {
       .pr-hero-fade {
         position: absolute;
         inset: 0;
-        background: linear-gradient(to bottom,
-          rgba(7,9,26,0) 0%,
-          rgba(7,9,26,.2) 35%,
-          rgba(7,9,26,.75) 65%,
-          rgba(7,9,26,1) 100%);
+        background: linear-gradient(to bottom, rgba(7,9,26,0) 0%, rgba(7,9,26,.12) 35%, rgba(7,9,26,.52) 65%, rgba(7,9,26,.82) 100%);
         z-index: 1;
       }
 
@@ -874,7 +866,7 @@ function GlobalStyles() {
         font-weight: 600;
         letter-spacing: .14em;
         text-transform: uppercase;
-        color: rgba(255,255,255,.38);
+        color: rgba(255,255,255,.48);
         margin-bottom: 18px;
         animation: pr-rU .8s .1s ease both;
       }
@@ -913,7 +905,7 @@ function GlobalStyles() {
       .pr-hero-sub {
         font-size: 16px;
         font-weight: 300;
-        color: rgba(255,255,255,.38);
+        color: rgba(255,255,255,.52);
         margin: 0 0 34px;
         letter-spacing: -.01em;
         animation: pr-rU .9s .4s ease both;
@@ -927,8 +919,8 @@ function GlobalStyles() {
       }
 
       .pr-kpi {
-        background: rgba(255,255,255,.05);
-        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.09);
         border-radius: 14px;
         padding: 18px 24px;
         backdrop-filter: blur(20px);
@@ -937,7 +929,7 @@ function GlobalStyles() {
       }
 
       .pr-kpi:hover {
-        background: rgba(255,255,255,.09);
+        background: rgba(255,255,255,.1);
         transform: translateY(-3px);
       }
 
@@ -951,7 +943,7 @@ function GlobalStyles() {
 
       .pr-kpi-l {
         font-size: 10px;
-        color: rgba(255,255,255,.32);
+        color: rgba(255,255,255,.42);
         margin-top: 6px;
         font-weight: 400;
         letter-spacing: .06em;
@@ -976,10 +968,10 @@ function GlobalStyles() {
         align-items: center;
         gap: 10px;
         z-index: 200;
-        background: linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));
+        background: linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.05));
         border: 1px solid var(--glass-b);
-        backdrop-filter: blur(28px) saturate(1.6);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.18),0 20px 50px rgba(0,0,5,.3);
+        backdrop-filter: blur(28px) saturate(1.45);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.14),0 20px 50px rgba(0,0,5,.18);
       }
 
       .pr-sb-brand {
@@ -991,7 +983,7 @@ function GlobalStyles() {
         font-weight: 800;
         font-size: 13px;
         background: linear-gradient(135deg,rgba(124,92,255,.95),rgba(54,183,255,.88));
-        box-shadow: 0 10px 28px rgba(86,88,214,.35);
+        box-shadow: 0 10px 28px rgba(86,88,214,.25);
         color: #fff;
         flex-shrink: 0;
       }
@@ -999,7 +991,7 @@ function GlobalStyles() {
       .pr-sb-label {
         writing-mode: vertical-rl;
         transform: rotate(180deg);
-        color: rgba(255,255,255,.38);
+        color: rgba(255,255,255,.46);
         font-size: 10px;
         letter-spacing: .2em;
         text-transform: uppercase;
@@ -1017,7 +1009,7 @@ function GlobalStyles() {
         width: 40px;
         height: 40px;
         border-radius: 14px;
-        border: 1px solid rgba(255,255,255,.18);
+        border: 1px solid rgba(255,255,255,.16);
         background: rgba(255,255,255,.08);
         color: #fff;
         cursor: pointer;
@@ -1055,7 +1047,7 @@ function GlobalStyles() {
       }
 
       .pr-nav-icon:hover::after { opacity: 1; }
-      .pr-nav-icon.on { box-shadow: 0 0 0 4px rgba(255,255,255,.08),0 10px 24px rgba(68,111,255,.28); }
+      .pr-nav-icon.on { box-shadow: 0 0 0 4px rgba(255,255,255,.08),0 10px 24px rgba(68,111,255,.22); }
 
       .pr-topbar {
         position: fixed;
@@ -1070,10 +1062,10 @@ function GlobalStyles() {
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        background: linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07));
+        background: linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.06));
         border: 1px solid var(--glass-b);
-        backdrop-filter: blur(28px) saturate(1.6);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.2),0 12px 32px rgba(0,0,10,.2);
+        backdrop-filter: blur(28px) saturate(1.5);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.14),0 12px 32px rgba(0,0,10,.14);
       }
 
       .pr-topbar-brand {
@@ -1096,16 +1088,14 @@ function GlobalStyles() {
         gap: 7px;
         padding: 6px 14px;
         border-radius: 100px;
-        color: rgba(239,244,255,.85);
+        color: rgba(239,244,255,.9);
         font-size: 12px;
         font-weight: 500;
-        border: 1px solid rgba(255,255,255,.12);
+        border: 1px solid rgba(255,255,255,.1);
         background: rgba(255,255,255,.06);
       }
 
-      .pr-chip-btn {
-        cursor: pointer;
-      }
+      .pr-chip-btn { cursor: pointer; }
 
       .pr-chip-dot {
         width: 7px;
@@ -1169,7 +1159,7 @@ function GlobalStyles() {
         font-weight: 600;
         letter-spacing: .12em;
         text-transform: uppercase;
-        color: rgba(255,255,255,.32);
+        color: rgba(255,255,255,.4);
         margin-bottom: 14px;
         display: flex;
         align-items: center;
@@ -1202,14 +1192,14 @@ function GlobalStyles() {
 
       .pr-ov-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill,minmax(240px,1fr));
-        gap: 14px;
+        grid-template-columns: repeat(auto-fill,minmax(210px,1fr));
+        gap: 12px;
       }
 
       .pr-ov-card {
         border: none;
-        border-radius: 22px;
-        padding: 20px 26px 24px;
+        border-radius: 20px;
+        padding: 16px 20px 20px;
         cursor: pointer;
         background: linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.05));
         border: 1px solid var(--glass-b);
@@ -1229,61 +1219,61 @@ function GlobalStyles() {
         left: 0;
         right: 0;
         height: 4px;
-        border-radius: 22px 22px 0 0;
+        border-radius: 20px 20px 0 0;
         background: var(--ov-accent, linear-gradient(90deg,#16a34a,#22c55e));
       }
 
       .pr-ov-card:hover {
         transform: translate3d(0,-4px,0) scale(1.018);
-        box-shadow: 0 16px 34px rgba(0,0,0,.24);
+        box-shadow: 0 16px 34px rgba(0,0,0,.18);
       }
 
       .pr-ov-num {
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 600;
         letter-spacing: .08em;
         color: rgba(255,255,255,.22);
-        margin-bottom: 28px;
+        margin-bottom: 18px;
       }
 
       .pr-ov-logo {
-        height: 38px;
+        height: 34px;
         display: flex;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
 
       .pr-ov-logo img {
-        max-height: 38px;
-        max-width: 130px;
+        max-height: 34px;
+        max-width: 116px;
         object-fit: contain;
         object-position: left;
       }
 
       .pr-ov-name {
-        font-size: 17px;
+        font-size: 15px;
         font-weight: 700;
         color: #fff;
         letter-spacing: -.02em;
-        margin-bottom: 18px;
+        margin-bottom: 10px;
       }
 
       .pr-ov-tag {
-        font-size: 12px;
+        font-size: 11px;
         color: var(--muted);
         font-weight: 300;
-        line-height: 1.6;
-        margin-bottom: 26px;
-        max-width: 220px;
+        line-height: 1.55;
+        margin-bottom: 18px;
+        max-width: 200px;
       }
 
       .pr-ov-badge {
         display: inline-flex;
         align-items: center;
         gap: 7px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
-        padding: 5px 14px;
+        padding: 5px 12px;
         border-radius: 100px;
         color: #fff;
         background: #129a17;
@@ -1321,7 +1311,7 @@ function GlobalStyles() {
 
       .pr-plat-card:hover {
         transform: translateY(-8px) scale(1.012);
-        box-shadow: 0 28px 64px rgba(8,15,40,.24);
+        box-shadow: 0 28px 64px rgba(8,15,40,.18);
       }
 
       .pr-plat-glow {
@@ -1333,7 +1323,7 @@ function GlobalStyles() {
         border-radius: 50%;
         filter: blur(60px);
         pointer-events: none;
-        opacity: .1;
+        opacity: .08;
       }
 
       .pr-plat-head {
@@ -1432,7 +1422,7 @@ function GlobalStyles() {
 
       .pr-stat-l {
         font-size: 11px;
-        color: rgba(255,255,255,.38);
+        color: rgba(255,255,255,.5);
         font-weight: 400;
         letter-spacing: .04em;
         text-transform: uppercase;
@@ -1443,6 +1433,10 @@ function GlobalStyles() {
         grid-template-columns: 1fr 1fr;
         gap: 12px;
         margin-bottom: 12px;
+      }
+
+      .pr-cols2-swap {
+        align-items: start;
       }
 
       .pr-gpanel {
@@ -1487,7 +1481,7 @@ function GlobalStyles() {
         gap: 10px;
         align-items: flex-start;
         font-size: 13.5px;
-        color: rgba(239,244,255,.78);
+        color: rgba(239,244,255,.82);
         padding: 8px 0;
         line-height: 1.55;
         font-weight: 300;
@@ -1507,7 +1501,7 @@ function GlobalStyles() {
 
       .pr-empty-txt {
         font-size: 13px;
-        color: rgba(255,255,255,.25);
+        color: rgba(255,255,255,.32);
         font-style: italic;
         padding: 6px 0;
       }
@@ -1525,7 +1519,7 @@ function GlobalStyles() {
 
       .pr-gtbl th {
         font-size: 10px;
-        color: rgba(255,255,255,.28);
+        color: rgba(255,255,255,.34);
         font-weight: 400;
         text-align: center;
         padding-bottom: 8px;
@@ -1544,7 +1538,7 @@ function GlobalStyles() {
 
       .pr-gnd {
         font-size: 12px;
-        color: rgba(239,244,255,.7);
+        color: rgba(239,244,255,.76);
         font-weight: 300;
         padding-right: 10px;
         white-space: nowrap;
@@ -1609,7 +1603,7 @@ function GlobalStyles() {
         align-items: center;
         gap: 6px;
         font-size: 11px;
-        color: rgba(255,255,255,.35);
+        color: rgba(255,255,255,.42);
       }
 
       .pr-gleg-bar {
@@ -1634,6 +1628,14 @@ function GlobalStyles() {
         margin-top: 4px;
       }
 
+      .pr-ss-grid-compact {
+        grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
+      }
+
+      .pr-shot-panel {
+        min-height: 100%;
+      }
+
       .pr-ss-thumb {
         aspect-ratio: 16 / 10;
         border-radius: 12px;
@@ -1647,7 +1649,7 @@ function GlobalStyles() {
 
       .pr-ss-thumb:hover {
         transform: scale(1.04);
-        box-shadow: 0 16px 40px rgba(0,0,0,.5);
+        box-shadow: 0 16px 40px rgba(0,0,0,.35);
         border-color: rgba(255,255,255,.25);
       }
 
@@ -1656,6 +1658,10 @@ function GlobalStyles() {
         height: 100%;
         object-fit: cover;
         display: block;
+      }
+
+      .pr-empty-shot {
+        min-height: 180px;
       }
 
       .pr-issue {
@@ -1677,8 +1683,8 @@ function GlobalStyles() {
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: rgba(0,0,0,.90);
-        backdrop-filter: blur(24px);
+        background: rgba(0,0,0,.82);
+        backdrop-filter: blur(18px);
         align-items: center;
         justify-content: center;
         padding: 24px;
@@ -1697,7 +1703,7 @@ function GlobalStyles() {
         width: 42px;
         height: 42px;
         border-radius: 50%;
-        background: rgba(255,255,255,.1);
+        background: rgba(255,255,255,.12);
         border: 1px solid rgba(255,255,255,.15);
         color: #fff;
         font-size: 18px;
@@ -1707,18 +1713,9 @@ function GlobalStyles() {
         justify-content: center;
       }
 
-      .pr-lb-x {
-        top: 20px;
-        right: 20px;
-      }
-
-      .pr-lb-nav-left {
-        left: 20px;
-      }
-
-      .pr-lb-nav-right {
-        right: 20px;
-      }
+      .pr-lb-x { top: 20px; right: 20px; }
+      .pr-lb-nav-left { left: 20px; }
+      .pr-lb-nav-right { right: 20px; }
 
       .pr-footer {
         margin: 0 14px 14px calc(var(--sidebar) + 26px);
@@ -1745,7 +1742,7 @@ function GlobalStyles() {
 
       .pr-footer-meta {
         font-size: 12px;
-        color: rgba(255,255,255,.28);
+        color: rgba(255,255,255,.34);
         text-align: right;
         line-height: 1.8;
         font-weight: 300;
@@ -1771,9 +1768,9 @@ function GlobalStyles() {
       body.pr-light .pr-kpi,
       body.pr-light .pr-chip,
       body.pr-light .pr-footer {
-        background: linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,255,255,.68));
+        background: linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.72));
         border-color: rgba(148,163,184,.2);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.65),0 14px 36px rgba(148,163,184,.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.7),0 14px 36px rgba(148,163,184,.12);
       }
 
       body.pr-light .pr-topbar-brand,
@@ -1865,7 +1862,8 @@ function GlobalStyles() {
           grid-template-columns: repeat(2,1fr) !important;
         }
 
-        .pr-ss-grid {
+        .pr-ss-grid,
+        .pr-ss-grid-compact {
           grid-template-columns: 1fr;
         }
       }
