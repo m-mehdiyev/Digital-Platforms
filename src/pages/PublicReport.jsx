@@ -451,7 +451,7 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
               <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
                 📅
               </span>
-              Gantt chart
+              Planlaşdırılan işlər (Gantt chart)
             </div>
 
             <GanttChart planned={plannedObjects} acc={acc} />
@@ -751,13 +751,16 @@ function GlobalStyles() {
         color: var(--text);
       }
 
-      body.pr-light .pr-shell {
-        --bg: #eef2ff;
-        --text: #0f172a;
-        --muted: #50627f;
-        --glass: rgba(255,255,255,.72);
-        --glass-b: rgba(120,138,170,.18);
-      }
+   body.pr-light .pr-shell {
+  --bg: #eef2ff;
+  --text: #0f172a;
+  --muted: #50627f;
+  --glass: rgba(255,255,255,.72);
+  --glass-b: rgba(120,138,170,.18);
+  background:
+    radial-gradient(circle at top right, rgba(99,102,241,.08), transparent 30%),
+    linear-gradient(180deg, #f8fbff 0%, #eef2ff 55%, #e9eefc 100%);
+}
 
       .pr-loading,
       .pr-empty {
@@ -1477,7 +1480,7 @@ function GlobalStyles() {
       }
 
       .pr-gantt-wrap {
-        overflow-x: auto;
+        overflow-x: hidden;
         margin-top: 4px;
       }
 
@@ -1487,13 +1490,24 @@ function GlobalStyles() {
         min-width: 760px;
       }
 
+      @media (max-width: 640px) {
+  .pr-gantt-wrap {
+    overflow-x: auto;
+  }
+
+  .pr-gtbl {
+    min-width: 760px;
+    table-layout: auto;
+  }
+}
+
       .pr-gtbl th {
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 600;
         color: rgba(255,255,255,.62);
         text-align: center;
         padding-bottom: 10px;
-        min-width: 48px;
+        min-width: 34px;
       }
 
       .pr-gnh {
@@ -1543,7 +1557,7 @@ function GlobalStyles() {
 
       .pr-gms {
         position: absolute;
-        right: -5px;
+        right: -0px;
         top: 50%;
         width: 10px;
         height: 10px;
