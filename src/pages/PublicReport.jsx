@@ -227,8 +227,8 @@ export default function PublicReport() {
         <section className="pr-section" id="platforms">
           <SectionIntro
             kicker="Ətraflı hesabat"
-            title="Platforma detayları"
-            desc="Görülən işlər, Gantt cədvəli və ekran görüntüləri"
+            title="Platformalara dair detallar"
+            desc="Görülən işlər, Planlaşdırılan işlər, Gantt cədvəli və ekran görüntüləri"
           />
 
           <div
