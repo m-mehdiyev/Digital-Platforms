@@ -390,16 +390,7 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
           </div>
         )}
 
-        <div className="pr-cols2 pr-cols2-swap">
-          <div className="pr-gpanel">
-            <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
-                ›
-              </span>
-              Planlaşdırılan işlər
-            </div>
-
-            <ul className="pr-ilist">
+                <ul className="pr-ilist">
               {plannedTexts.filter(Boolean).length ? (
                 plannedTexts
                   .filter(Boolean)
@@ -1430,7 +1421,7 @@ function GlobalStyles() {
 
       .pr-cols2 {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 7fr 3fr;
         gap: 12px;
         margin-bottom: 12px;
       }
@@ -1518,12 +1509,12 @@ function GlobalStyles() {
       }
 
       .pr-gtbl th {
-        font-size: 10px;
-        color: rgba(255,255,255,.34);
-        font-weight: 400;
+        font-size: 11px;
+        color: rgba(255,255,255,.62);
+        font-weight: 600;
         text-align: center;
-        padding-bottom: 8px;
-        min-width: 40px;
+        padding-bottom: 10px;
+        min-width: 48px;
       }
 
       .pr-gnh {
@@ -1538,13 +1529,15 @@ function GlobalStyles() {
 
       .pr-gnd {
         font-size: 12px;
-        color: rgba(239,244,255,.76);
-        font-weight: 300;
-        padding-right: 10px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 130px;
+        line-height: 1.35;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+        max-width: none;
+        min-width: 220px;
+        width: 220px;
+        vertical-align: top;
+        padding-right: 12px;
       }
 
       .pr-gcl {
@@ -1664,19 +1657,25 @@ function GlobalStyles() {
         min-height: 180px;
       }
 
-      .pr-issue {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-        background: rgba(245,165,36,.07);
-        border: 1px solid rgba(245,165,36,.2);
-        border-radius: 14px;
-        padding: 13px 16px;
-        font-size: 13px;
-        color: rgba(245,165,36,.9);
-        margin-top: 12px;
-        line-height: 1.55;
-      }
+    .pr-issue {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: rgba(245,165,36,.07);
+  border: 1px solid rgba(245,165,36,.2);
+  border-radius: 14px;
+  padding: 13px 16px;
+  font-size: 13px;
+  color: rgba(245,165,36,.9);
+  margin-top: 12px;
+  line-height: 1.55;
+}
+
+body.pr-light .pr-issue {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
 
       .pr-lb {
         display: flex;
@@ -1826,6 +1825,10 @@ function GlobalStyles() {
         color: #1e293b;
         background: rgba(255,255,255,.9);
         border-color: rgba(148,163,184,.28);
+      }
+
+      body.pr-light .pr-gtbl th {
+        color: #64748b;
       }
 
       @media (max-width: 900px) {
