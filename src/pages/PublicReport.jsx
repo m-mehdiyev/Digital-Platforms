@@ -389,71 +389,72 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
           </div>
         )}
 
+        {/* Görülən + Road Map — 2 sütun */}
         <div className="pr-cols2 pr-cols2-swap">
           <div className="pr-gpanel">
             <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
-                ✓
-              </span>
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>✓</span>
               Görülən işlər
             </div>
-
             <ul className="pr-ilist">
-              {done.length ? (
-                done.map((d, i) => (
-                  <li key={i}>
-                    <span className="pr-im" style={{ color: '#16a34a' }}>
-                      ✓
-                    </span>
-                    <span>{d}</span>
-                  </li>
-                ))
-              ) : (
-                <div className="pr-empty-txt">Məlumat yoxdur</div>
-              )}
+              {done.length ? done.map((d, i) => (
+                <li key={i}><span className="pr-im" style={{ color: '#16a34a' }}>✓</span><span>{d}</span></li>
+              )) : <div className="pr-empty-txt">Məlumat yoxdur</div>}
             </ul>
           </div>
 
-          {screenshots.length > 0 ? (
-            <div className="pr-gpanel pr-shot-panel">
-              <div className="pr-panel-hd" style={{ color: acc }}>
-                <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
-                  📷
-                </span>
-                Ekran görüntüləri
-              </div>
-
-              <div className="pr-ss-grid pr-ss-grid-compact">
-                {screenshots.map((src, i) => (
-                  <button key={i} className="pr-ss-thumb" onClick={() => setLightbox(i)} type="button">
-                    <img src={src} alt={`${p.name} screenshot ${i + 1}`} />
-                  </button>
-                ))}
-              </div>
+          <div className="pr-gpanel">
+            <div className="pr-panel-hd" style={{ color: '#a78bfa' }}>
+              <span className="pr-panel-hd-ico" style={{ background: 'rgba(167,139,250,.15)', color: '#a78bfa' }}>🗺</span>
+              Yol Xəritəsi
             </div>
-          ) : (
-            <div className="pr-gpanel pr-empty-shot">
-              <div className="pr-panel-hd" style={{ color: acc }}>
-                <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
-                  📷
-                </span>
-                Ekran görüntüləri
-              </div>
-
-              <div className="pr-empty-txt">Ekran görüntüsü əlavə edilməyib</div>
-            </div>
-          )}
+            {plannedObjects.length ? (
+              <ul className="pr-ilist">
+                {plannedObjects.map((item, i) => {
+                  const txt = typeof item === 'string' ? item : item.text
+                  const status = typeof item === 'object' ? (item.status || 'pending') : 'pending'
+                  const ST_MAP = {
+                    pending:     { label: 'İcra gözləyir', color: '#9ca3af', bg: 'rgba(156,163,175,.15)' },
+                    in_progress: { label: 'İcrada',        color: '#60a5fa', bg: 'rgba(96,165,250,.15)'  },
+                    done:        { label: 'İcra edildi',   color: '#34d399', bg: 'rgba(52,211,153,.15)'  },
+                    blocked:     { label: 'Bloklanıb',     color: '#f87171', bg: 'rgba(248,113,113,.15)' },
+                  }
+                  const st = ST_MAP[status] || ST_MAP.pending
+                  return (
+                    <li key={i} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: st.color, background: st.bg, borderRadius: 6, padding: '2px 8px', display: 'inline-block' }}>{st.label}</span>
+                      <span style={{ fontSize: 13 }}>{txt}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : <div className="pr-empty-txt">Məlumat yoxdur</div>}
+          </div>
         </div>
+
+        {/* Şəkillər — sabit yüksəklikli, heç vaxt böyüməyən kart */}
+        {screenshots.length > 0 && (
+          <div className="pr-gpanel" style={{ marginTop: 12 }}>
+            <div className="pr-panel-hd" style={{ color: acc }}>
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>📷</span>
+              Ekran görüntüləri ({screenshots.length})
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, maxHeight: 200, overflowY: 'auto', padding: '2px 0 4px' }}>
+              {screenshots.map((src, i) => (
+                <button key={i} className="pr-ss-thumb" onClick={() => setLightbox(i)} type="button" style={{ aspectRatio: '16/10', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'transparent', padding: 0 }}>
+                  <img src={src} alt={`${p.name} screenshot ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {hasGantt && (
           <div className="pr-gpanel" style={{ marginTop: 12 }}>
             <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>
-                📅
-              </span>
-              Planlaşdırılan işlər (Gantt chart)
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>📅</span>
+              Yol Xəritəsi — Gantt
             </div>
-
             <GanttChart planned={plannedObjects} acc={acc} />
           </div>
         )}
@@ -475,6 +476,13 @@ function GanttChart({ planned, acc }) {
   const items = planned?.filter(item => item && typeof item === 'object' && item.start_month) || []
   if (!items.length) return null
 
+  const ST_COLORS = {
+    pending: '#9ca3af', in_progress: '#60a5fa', done: '#34d399', blocked: '#f87171',
+  }
+  const ST_LABELS = {
+    pending: 'Gözləyir', in_progress: 'İcrada', done: 'Edildi', blocked: 'Blok',
+  }
+
   return (
     <>
       <div className="pr-gantt-wrap">
@@ -482,41 +490,36 @@ function GanttChart({ planned, acc }) {
           <thead>
             <tr>
               <th className="pr-gnh" />
+              <th style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', fontWeight: 400, textAlign: 'left', paddingBottom: 6, whiteSpace: 'nowrap', minWidth: 76 }}>Status</th>
               {MONTHS_AZ.map((m, i) => (
                 <th key={i}>{m}</th>
               ))}
             </tr>
           </thead>
-
           <tbody>
             {items.map((item, ri) => {
               const start =
                 Math.min(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
               const end =
                 Math.max(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
+              const barColor = ST_COLORS[item.status] || acc
+              const stLabel = ST_LABELS[item.status] || 'Gözləyir'
 
               return (
                 <tr key={ri}>
                   <td className="pr-gnd">{item.text}</td>
-
+                  <td style={{ paddingRight: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: barColor, background: barColor + '25', borderRadius: 5, padding: '2px 6px', whiteSpace: 'nowrap' }}>{stLabel}</span>
+                  </td>
                   {MONTHS_AZ.map((_, mi) => {
                     const inRange = mi >= start && mi <= end
                     const isMsEnd = item.is_milestone && mi === end
-
                     return (
                       <td key={mi}>
                         <div className="pr-gcl" />
-
                         {inRange && (
-                          <div
-                            className="pr-gbar"
-                            style={{
-                              background: `${acc}2a`,
-                              border: `1px solid ${acc}55`
-                            }}
-                          />
+                          <div className="pr-gbar" style={{ background: barColor + '40', border: `1px solid ${barColor}80` }} />
                         )}
-
                         {isMsEnd && (
                           <>
                             <div className="pr-gms" />
@@ -532,13 +535,18 @@ function GanttChart({ planned, acc }) {
           </tbody>
         </table>
       </div>
-
       <div className="pr-gleg">
-        <div className="pr-gleg-i">
-          <div className="pr-gleg-bar" style={{ background: `${acc}2a`, border: `1px solid ${acc}55` }} />
-          Planlaşdırılan
-        </div>
-
+        {[
+          { label: 'İcra gözləyir', color: '#9ca3af' },
+          { label: 'İcrada',        color: '#60a5fa' },
+          { label: 'İcra edildi',   color: '#34d399' },
+          { label: 'Bloklanıb',     color: '#f87171' },
+        ].map(s => (
+          <div key={s.label} className="pr-gleg-i">
+            <div className="pr-gleg-bar" style={{ background: s.color + '40', border: `1px solid ${s.color}80` }} />
+            {s.label}
+          </div>
+        ))}
         <div className="pr-gleg-i">
           <div className="pr-gleg-ms" />
           Milestone

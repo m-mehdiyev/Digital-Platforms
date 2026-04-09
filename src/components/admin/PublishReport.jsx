@@ -1,11 +1,28 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Send, Eye, Edit2, X, Plus, Trash2, Save, Flag } from 'lucide-react'
+import { Send, Eye, Edit2, X, Plus, Trash2, Save, Flag, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const MONTHS = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt','Noy','Dek']
 
-// ─── DB-dən hesabat məlumatlarını topla ──────────────────
+const STATUSES = [
+  { value: 'pending',     label: 'İcra gözləyir', color: '#6b7280', bg: 'rgba(107,114,128,0.12)', border: 'rgba(107,114,128,0.25)' },
+  { value: 'in_progress', label: 'İcrada',         color: '#2563eb', bg: 'rgba(37,99,235,0.10)',   border: 'rgba(37,99,235,0.25)'  },
+  { value: 'done',        label: 'İcra edildi',    color: '#059669', bg: 'rgba(5,150,105,0.10)',   border: 'rgba(5,150,105,0.25)'  },
+  { value: 'blocked',     label: 'Bloklanıb',      color: '#dc2626', bg: 'rgba(220,38,38,0.10)',   border: 'rgba(220,38,38,0.25)'  },
+]
+
+function StatusPill({ value }) {
+  const st = STATUSES.find(s => s.value === value) || STATUSES[0]
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, color: st.color,
+      background: st.bg, border: `1.5px solid ${st.border}`,
+      borderRadius: 7, padding: '3px 9px', whiteSpace: 'nowrap', display: 'inline-block'
+    }}>{st.label}</span>
+  )
+}
+
 async function gatherReportData(period, platforms) {
   const result = { period, generatedAt: new Date().toISOString(), platforms: [] }
   for (const plat of platforms) {
@@ -20,11 +37,11 @@ async function gatherReportData(period, platforms) {
       color: plat.color, logo_url: plat.logo_url,
       done: rep?.completed_items?.sort((a,b)=>a.order_index-b.order_index).map(i=>i.text) || [],
       planned: rep?.planned_items?.sort((a,b)=>a.order_index-b.order_index).map(i => ({
-        text: i.text,
-        start_month: i.start_month ?? null,
+        text: i.text, start_month: i.start_month ?? null,
         end_month: i.end_month ?? null,
         is_milestone: i.is_milestone || false,
         milestone_label: i.milestone_label || '',
+        status: i.status || 'pending',
       })) || [],
       stats: rep?.statistics?.sort((a,b)=>a.order_index-b.order_index).map(s=>({ v:s.value, l:s.label })) || [],
       screenshots: rep?.attachments?.filter(a=>a.file_type==='screenshot').map(a=>a.file_url) || [],
@@ -34,29 +51,33 @@ async function gatherReportData(period, platforms) {
   return result
 }
 
-// ─── Ana komponent ────────────────────────────────────────
 export default function PublishReport() {
-  const [period, setPeriod]       = useState('')
-  const [periods, setPeriods]     = useState([])
-  const [platforms, setPlatforms] = useState([])
-  const [preview, setPreview]     = useState(null)
-  const [busy, setBusy]           = useState(false)
-  const [loading, setLoading]     = useState(true)
-  const [editing, setEditing]     = useState(false)
-  const [editData, setEditData]   = useState(null)
+  const [period, setPeriod]         = useState('')
+  const [periods, setPeriods]       = useState([])
+  const [platforms, setPlatforms]   = useState([])
+  const [preview, setPreview]       = useState(null)
+  const [busy, setBusy]             = useState(false)
+  const [loading, setLoading]       = useState(true)
+  const [editing, setEditing]       = useState(false)
+  const [editData, setEditData]     = useState(null)
+  const [published, setPublished]   = useState([])
+  const [copyModal, setCopyModal]   = useState(null) // { report }
+  const [newPeriodName, setNewPeriodName] = useState('')
 
   useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
     setLoading(true)
-    const [{ data: plats }, { data: reps }] = await Promise.all([
+    const [{ data: plats }, { data: reps }, { data: pubs }] = await Promise.all([
       supabase.from('platforms').select('*').order('order_index'),
       supabase.from('report_periods').select('period_label').order('period_label'),
+      supabase.from('published_reports').select('id,period_label,published_at').order('published_at', { ascending: false }),
     ])
     setPlatforms(plats || [])
     const unique = [...new Set((reps || []).map(r => r.period_label))]
     setPeriods(unique)
     if (unique[0]) setPeriod(unique[0])
+    setPublished(pubs || [])
     setLoading(false)
   }
 
@@ -81,6 +102,51 @@ export default function PublishReport() {
       if (error) throw new Error(error.message)
       toast.success('✅ Hesabat yayımlandı!')
       setPreview(null); setEditing(false); setEditData(null)
+      fetchData()
+    } catch (e) { toast.error('Xəta: ' + e.message) }
+    setBusy(false)
+  }
+
+  // ── Hesabatı kopyala (yeni dövr adı ilə) ──────────────
+  async function copyReport() {
+    if (!newPeriodName.trim()) return toast.error('Yeni dövr adı daxil edin')
+    if (!copyModal?.report) return
+    setBusy(true)
+    try {
+      const srcReport = copyModal.report
+
+      // Mövcud published report-un tam datasını çəkirik
+      const { data: srcData } = await supabase
+        .from('published_reports')
+        .select('report_data')
+        .eq('id', srcReport.id)
+        .single()
+
+      if (!srcData) throw new Error('Mənbə hesabat tapılmadı')
+
+      // Road map-i kopyalayırıq, şəkilləri sıfırlayırıq
+      const newData = JSON.parse(JSON.stringify(srcData.report_data))
+      newData.period = newPeriodName.trim()
+      newData.generatedAt = new Date().toISOString()
+      newData.platforms = newData.platforms.map(p => ({
+        ...p,
+        screenshots: [],       // şəkillər sıfırlanır
+        done: [],              // görülən işlər sıfırlanır
+        // planned (road map) olduğu kimi qalır, statuslar da
+      }))
+
+      const { error } = await supabase.from('published_reports').insert({
+        period_label: newPeriodName.trim(),
+        report_data: newData,
+        published_at: new Date().toISOString(),
+        copied_from: srcReport.id,
+      })
+      if (error) throw new Error(error.message)
+
+      toast.success(`✅ "${newPeriodName}" dövrü üçün hesabat yaradıldı!`)
+      setCopyModal(null)
+      setNewPeriodName('')
+      fetchData()
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
   }
@@ -114,9 +180,7 @@ export default function PublishReport() {
         </div>
         {preview && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={openEdit}>
-              <Edit2 size={14}/> Redaktə Et
-            </button>
+            <button className="btn btn-secondary" onClick={openEdit}><Edit2 size={14}/> Redaktə Et</button>
             <button className="btn btn-success" onClick={() => publish(preview)} disabled={busy}>
               <Send size={15}/> {busy ? 'Yayımlanır...' : 'Yayımla'}
             </button>
@@ -124,6 +188,7 @@ export default function PublishReport() {
         )}
       </div>
 
+      {/* Dövr seçici */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
@@ -139,18 +204,41 @@ export default function PublishReport() {
         </div>
       </div>
 
+      {/* Yayımlanmış hesabatlar + kopyala */}
+      {published.length > 0 && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-title" style={{ color: '#7c3aed' }}>📋 Yayımlanmış Hesabatlar</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {published.map(pub => (
+              <div key={pub.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(99,102,241,0.04)', borderRadius: 10, border: '1px solid rgba(99,102,241,0.1)' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{pub.period_label}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{new Date(pub.published_at).toLocaleDateString('az')}</div>
+                </div>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setCopyModal({ report: pub }); setNewPeriodName('') }}
+                  title="Bu hesabatın road map-ini yeni dövrə kopyala"
+                >
+                  <Copy size={12}/> Kopyala
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Önizləmə */}
       {preview && (
         <>
           <div className="card" style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div className="card-title" style={{ marginBottom: 0 }}>Xülasə — {preview.period}</div>
-              <button className="btn btn-secondary btn-sm" onClick={openEdit}>
-                <Edit2 size={13}/> Redaktə Et
-              </button>
+              <button className="btn btn-secondary btn-sm" onClick={openEdit}><Edit2 size={13}/> Redaktə Et</button>
             </div>
             <table className="data-table">
               <thead>
-                <tr><th>Platforma</th><th>Görülən</th><th>Görüləcək</th><th>KPI</th><th>Şəkil</th></tr>
+                <tr><th>Platforma</th><th>Görülən</th><th>Road Map</th><th>KPI</th><th>Şəkil</th></tr>
               </thead>
               <tbody>
                 {preview.platforms.map(p => (
@@ -182,6 +270,7 @@ export default function PublishReport() {
         </>
       )}
 
+      {/* Edit Modal */}
       {editing && editData && (
         <EditModal
           data={editData}
@@ -192,25 +281,51 @@ export default function PublishReport() {
           busy={busy}
         />
       )}
+
+      {/* Kopyalama Modal */}
+      {copyModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.65)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:24, backdropFilter:'blur(4px)' }}
+          onClick={e => e.target === e.currentTarget && setCopyModal(null)}>
+          <div style={{ background:'#fff', borderRadius:18, width:'100%', maxWidth:440, padding:28, boxShadow:'0 24px 64px rgba(0,0,0,.18)' }}>
+            <div style={{ fontSize:17, fontWeight:700, color:'#0f172a', marginBottom:6 }}>📋 Hesabatı Kopyala</div>
+            <div style={{ fontSize:13, color:'#6b7280', marginBottom:20, lineHeight:1.55 }}>
+              <strong>{copyModal.report.period_label}</strong> dövrünün Road Map-i yeni dövrə kopyalanacaq.<br/>
+              Görülən işlər və şəkillər sıfırlanır, yalnız tapşırıqlar və statuslar köçürülür.
+            </div>
+            <div className="form-group">
+              <label className="form-label">Yeni dövr adı</label>
+              <input className="form-input" value={newPeriodName}
+                onChange={e => setNewPeriodName(e.target.value)}
+                placeholder="məs. Q2 2026"
+                onKeyDown={e => e.key === 'Enter' && copyReport()}
+                autoFocus/>
+            </div>
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
+              <button className="btn btn-secondary" onClick={() => setCopyModal(null)}>Ləğv et</button>
+              <button className="btn btn-success" onClick={copyReport} disabled={busy || !newPeriodName.trim()}>
+                <Copy size={13}/> {busy ? 'Kopyalanır...' : 'Kopyala və Yayımla'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Gantt mini komponent (preview + edit üçün) ──────────
+// ── Gantt ────────────────────────────────────────
 function MiniGantt({ planned, acc }) {
   const hasGantt = planned?.some(p => p.start_month)
   if (!hasGantt) return null
-
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: acc, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
-        📅 İş Planı — Gantt
-      </div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: acc, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>📅 Yol Xəritəsi — Gantt</div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
           <thead>
             <tr>
-              <th style={{ width: 160, textAlign: 'left', fontSize: 10, color: '#9ca3af', fontWeight: 500, paddingBottom: 4 }}></th>
+              <th style={{ width: 160, textAlign: 'left', fontSize: 10, color: '#9ca3af', fontWeight: 500, paddingBottom: 4 }}>Tapşırıq</th>
+              <th style={{ width: 100, textAlign: 'left', fontSize: 10, color: '#9ca3af', fontWeight: 500, paddingBottom: 4 }}>Status</th>
               {MONTHS.map((m, i) => (
                 <th key={i} style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500, textAlign: 'center', paddingBottom: 4, minWidth: 36 }}>{m}</th>
               ))}
@@ -218,103 +333,45 @@ function MiniGantt({ planned, acc }) {
           </thead>
           <tbody>
             {planned.filter(p => p.start_month).map((item, i) => {
-              const start = parseInt(item.start_month)
-const end = parseInt(item.end_month || item.start_month)
-const s = Math.min(start, end) - 1
-const e = Math.max(start, end) - 1
+              const s = Math.min(parseInt(item.start_month), parseInt(item.end_month||item.start_month)) - 1
+              const e = Math.max(parseInt(item.start_month), parseInt(item.end_month||item.start_month)) - 1
+              const st = STATUSES.find(x => x.value === item.status) || STATUSES[0]
               return (
                 <tr key={i}>
-                  <td style={{ fontSize: 11, color: '#374151', paddingRight: 8, paddingBottom: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.text}
-                  </td>
-                 {MONTHS.map((_, mi) => {
-  const inRange = mi >= s && mi <= e
-  const isMsEnd = item.is_milestone && mi === e
-
-  return (
-    <td
-      key={mi}
-      style={{
-        padding: '2px 1px',
-        height: 28,
-        position: 'relative',
-        minWidth: 42
-      }}
-    >
-      <div
-        style={{
-          borderRight: '1px solid #f1f3f9',
-          height: '100%',
-          position: 'absolute',
-          right: 0,
-          top: 0
-        }}
-      />
-
-      {inRange && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 1,
-            right: 1,
-            top: 7,
-            height: 14,
-            borderRadius: 3,
-            background: '#888780',
-            opacity: .65
-          }}
-        />
-      )}
-
-      {isMsEnd && (
-        <div
-          style={{
-            position: 'absolute',
-            right: -6,
-            top: 5,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            zIndex: 2,
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <div
-            style={{
-              width: 10,
-              height: 10,
-              background: '#D85A30',
-              transform: 'rotate(45deg)',
-              flexShrink: 0
-            }}
-          />
-          {item.milestone_label && (
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: '#D85A30',
-                lineHeight: 1
-              }}
-            >
-              {item.milestone_label}
-            </span>
-          )}
-        </div>
-      )}
-    </td>
-  )
-})}
+                  <td style={{ fontSize: 11, color: '#374151', paddingRight: 6, paddingBottom: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.text}</td>
+                  <td style={{ paddingRight: 6 }}><StatusPill value={item.status}/></td>
+                  {MONTHS.map((_, mi) => {
+                    const inRange = mi >= s && mi <= e
+                    const isMsEnd = item.is_milestone && mi === e
+                    return (
+                      <td key={mi} style={{ padding: '2px 1px', height: 28, position: 'relative', minWidth: 36 }}>
+                        <div style={{ borderRight: '1px solid #f1f3f9', height: '100%', position: 'absolute', right: 0, top: 0 }}/>
+                        {inRange && (
+                          <div style={{ position:'absolute', left:1, right:1, top:7, height:14, borderRadius:3, background: st.color, opacity:.5 }}/>
+                        )}
+                        {isMsEnd && (
+                          <div style={{ position:'absolute', right:-6, top:5, display:'flex', alignItems:'center', gap:4, zIndex:2, whiteSpace:'nowrap' }}>
+                            <div style={{ width:10, height:10, background:'#D85A30', transform:'rotate(45deg)', flexShrink:0 }}/>
+                            {item.milestone_label && (
+                              <span style={{ fontSize:10, fontWeight:600, color:'#D85A30', lineHeight:1 }}>{item.milestone_label}</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
-      <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
-          <div style={{ width: 18, height: 10, borderRadius: 2, background: '#888780', opacity: .65 }}/> Planlaşdırılan
-        </div>
+      <div style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap' }}>
+        {STATUSES.map(st => (
+          <div key={st.value} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            <div style={{ width: 18, height: 10, borderRadius: 2, background: st.color, opacity: .5 }}/> {st.label}
+          </div>
+        ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
           <div style={{ width: 10, height: 10, background: '#D85A30', transform: 'rotate(45deg)' }}/> Milestone
         </div>
@@ -323,7 +380,7 @@ const e = Math.max(start, end) - 1
   )
 }
 
-// ─── Tam Önizləmə Kartı ───────────────────────────────────
+// ── Platform preview kartı ────────────────────────
 function PlatformPreviewCard({ p, idx }) {
   const acc = p.color || '#6366f1'
   const isEven = idx % 2 === 0
@@ -356,7 +413,8 @@ function PlatformPreviewCard({ p, idx }) {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: p.screenshots?.length ? '1fr 1fr 240px' : '1fr 1fr', gap: 16 }}>
+        {/* 2 sütun: görülən + road map. Şəkil ayrı bölmə */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: p.screenshots?.length ? 16 : 0 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #d1fae5' }}>
               ✓ Görülən İşlər
@@ -373,45 +431,52 @@ function PlatformPreviewCard({ p, idx }) {
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #dbeafe' }}>
-              › Görüləcək İşlər
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #ede9fe' }}>
+              🗺️ Yol Xəritəsi
             </div>
-            {plannedTexts.length ? (
+            {p.planned?.length ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                {plannedTexts.map((d, i) => (
-                  <li key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#374151', padding: '5px 0', borderBottom: i < plannedTexts.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
-                    <span style={{ color: '#2563eb', flexShrink: 0 }}>›</span>{d}
-                  </li>
-                ))}
+                {p.planned.map((item, i) => {
+                  const t = typeof item === 'string' ? item : item.text
+                  const status = typeof item === 'object' ? item.status : 'pending'
+                  return (
+                    <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: '#374151', padding: '5px 0', borderBottom: i < p.planned.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
+                      <StatusPill value={status}/>
+                      <span style={{ flex: 1 }}>{t}</span>
+                    </li>
+                  )
+                })}
               </ul>
             ) : <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Məlumat yoxdur</div>}
           </div>
-
-          {p.screenshots?.length > 0 && (
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff' }}>
-                📷 Şəkillər
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-                {p.screenshots.map((ss, i) => (
-                  <img key={i} src={ss} alt="" style={{ width: '100%', aspectRatio: '16/10', objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}/>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Gantt — yalnız ay məlumatı olan planned item-lər varsa */}
+        {/* Şəkillər — sabit ölçülü grid, scroll */}
+        {p.screenshots?.length > 0 && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff' }}>
+              📷 Şəkillər ({p.screenshots.length})
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, maxHeight: 220, overflowY: 'auto', padding: '4px 0' }}>
+              {p.screenshots.map((ss, i) => (
+                <div key={i} style={{ aspectRatio: '16/10', borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
+                  <img src={ss} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <MiniGantt planned={p.planned} acc={acc} />
       </div>
     </div>
   )
 }
 
-// ─── Edit Modal ───────────────────────────────────────────
+// ── Edit Modal ────────────────────────────────────
 function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
-  const IS = { width:'100%', padding:'8px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:14, fontFamily:'Arial,sans-serif', outline:'none', background:'#fff' }
-  const SS = { padding:'7px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontFamily:'Arial,sans-serif', outline:'none', background:'#fff', width:'100%' }
+  const IS = { width:'100%', padding:'8px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:14, fontFamily:'inherit', outline:'none', background:'#fff' }
+  const SS = { padding:'7px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', background:'#fff', width:'100%' }
   const ST = (color, label) => (
     <div style={{ fontSize:12, fontWeight:700, color, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8, paddingBottom:5, borderBottom:`2px solid ${color}22` }}>{label}</div>
   )
@@ -421,12 +486,10 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
     const updated = plat.planned.map((item, i) => i === idx ? { ...item, [field]: val } : item)
     onChange(platId, 'planned', updated)
   }
-
   function addPlanned(platId) {
     const plat = data.platforms.find(p => p.id === platId)
-    onChange(platId, 'planned', [...(plat.planned || []), { text: '', start_month: null, end_month: null, is_milestone: false, milestone_label: '' }])
+    onChange(platId, 'planned', [...(plat.planned || []), { text: '', start_month: null, end_month: null, is_milestone: false, milestone_label: '', status: 'pending' }])
   }
-
   function removePlanned(platId, idx) {
     const plat = data.platforms.find(p => p.id === platId)
     onChange(platId, 'planned', plat.planned.filter((_, i) => i !== idx))
@@ -435,7 +498,7 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.7)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'24px', overflow:'auto', backdropFilter:'blur(4px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:860, boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
+      <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:900, boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:'1px solid #f1f3f9' }}>
           <div style={{ fontSize:17, fontWeight:700, color:'#0f172a' }}>✏️ Redaktə — {data.period}</div>
           <div style={{ display:'flex', gap:8 }}>
@@ -471,31 +534,37 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
                       style={{ fontSize:13, color:'#059669', background:'rgba(5,150,105,0.06)', border:'1.5px solid rgba(5,150,105,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ Əlavə et</button>
                   </div>
 
-                  {/* Görüləcək — ay seçici ilə */}
+                  {/* Road Map */}
                   <div>
-                    {ST('#2563eb', '› Görüləcək İşlər')}
+                    {ST('#7c3aed', '🗺️ Yol Xəritəsi (Road Map)')}
                     {(p.planned || []).map((item, i) => (
-                      <div key={i} style={{ marginBottom:10, padding:'10px 12px', background:'rgba(37,99,235,0.03)', borderRadius:10, border:'1px solid rgba(37,99,235,0.1)' }}>
+                      <div key={i} style={{ marginBottom:10, padding:'10px 12px', background:'rgba(124,58,237,0.03)', borderRadius:10, border:'1px solid rgba(124,58,237,0.12)' }}>
                         <div style={{ display:'flex', gap:6, marginBottom:8 }}>
                           <input style={{...IS, flex:1}} value={item.text || ''}
                             onChange={e => updatePlanned(p.id, i, 'text', e.target.value)}/>
                           <button onClick={() => removePlanned(p.id, i)}
                             style={{ padding:'0 10px', border:'1.5px solid #fecaca', borderRadius:8, background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:14 }}>✕</button>
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                        {/* Status + aylar */}
+                        <div style={{ display:'grid', gridTemplateColumns:'auto 1fr 1fr', gap:8, marginBottom:8, alignItems:'center' }}>
+                          <select value={item.status || 'pending'}
+                            onChange={e => updatePlanned(p.id, i, 'status', e.target.value)}
+                            style={{ fontSize:12, fontWeight:600, borderRadius:8, padding:'5px 10px', border:'1.5px solid #e5e7eb', cursor:'pointer', fontFamily:'inherit', outline:'none' }}>
+                            {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                          </select>
                           <div>
-                            <div style={{ fontSize:11, color:'#6b7280', marginBottom:3 }}>Başlanğıc ayı</div>
+                            <div style={{ fontSize:10, color:'#9ca3af', marginBottom:3 }}>Başlanğıc</div>
                             <select style={SS} value={item.start_month || ''}
                               onChange={e => updatePlanned(p.id, i, 'start_month', e.target.value ? parseInt(e.target.value) : null)}>
-                              <option value="">— Seçin</option>
+                              <option value="">— Ay</option>
                               {MONTHS.map((m, mi) => <option key={mi+1} value={mi+1}>{m} ({mi+1})</option>)}
                             </select>
                           </div>
                           <div>
-                            <div style={{ fontSize:11, color:'#6b7280', marginBottom:3 }}>Bitmə ayı</div>
+                            <div style={{ fontSize:10, color:'#9ca3af', marginBottom:3 }}>Bitmə</div>
                             <select style={SS} value={item.end_month || ''}
                               onChange={e => updatePlanned(p.id, i, 'end_month', e.target.value ? parseInt(e.target.value) : null)}>
-                              <option value="">— Seçin</option>
+                              <option value="">— Ay</option>
                               {MONTHS.map((m, mi) => <option key={mi+1} value={mi+1}>{m} ({mi+1})</option>)}
                             </select>
                           </div>
@@ -503,18 +572,18 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
                         <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'#6b7280', cursor:'pointer' }}>
                           <input type="checkbox" checked={item.is_milestone || false}
                             onChange={e => updatePlanned(p.id, i, 'is_milestone', e.target.checked)}
-                            style={{ accentColor:'#D85A30', width:14, height:14 }}/>
-                          <Flag size={12} color="#D85A30"/> Milestone
+                            style={{ accentColor:'#D85A30', width:13, height:13 }}/>
+                          <Flag size={11} color="#D85A30"/> Milestone
                         </label>
                         {item.is_milestone && (
                           <input style={{...IS, marginTop:6, fontSize:12}} value={item.milestone_label || ''}
                             onChange={e => updatePlanned(p.id, i, 'milestone_label', e.target.value)}
-                            placeholder="Milestone adı (məs. v1.0, Beta...)"/>
+                            placeholder="Milestone adı"/>
                         )}
                       </div>
                     ))}
                     <button onClick={() => addPlanned(p.id)}
-                      style={{ fontSize:13, color:'#2563eb', background:'rgba(37,99,235,0.06)', border:'1.5px solid rgba(37,99,235,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ Əlavə et</button>
+                      style={{ fontSize:13, color:'#7c3aed', background:'rgba(124,58,237,0.06)', border:'1.5px solid rgba(124,58,237,0.2)', borderRadius:8, padding:'5px 12px', cursor:'pointer' }}>+ Tapşırıq əlavə et</button>
                   </div>
 
                   {/* KPI */}
