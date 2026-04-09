@@ -475,7 +475,7 @@ function GanttChart({ planned, acc }) {
                 Math.min(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
               const end =
                 Math.max(parseInt(item.start_month, 10), parseInt(item.end_month || item.start_month, 10)) - 1
-              const barColor = ST_COLORS[item.status] || acc
+              const barColor = ST_COLORS[item.status] || '#64748b'
               const stLabel = ST_LABELS[item.status] || 'To do'
 
               return (
