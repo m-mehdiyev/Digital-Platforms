@@ -7,10 +7,10 @@ import toast from 'react-hot-toast'
 const MONTHS = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt','Noy','Dek']
 
 const STATUSES = [
-  { value: 'pending',     label: 'İcra gözləyir', color: '#6b7280', bg: 'rgba(107,114,128,0.12)', border: 'rgba(107,114,128,0.25)' },
-  { value: 'in_progress', label: 'İcrada',         color: '#2563eb', bg: 'rgba(37,99,235,0.10)',   border: 'rgba(37,99,235,0.25)'  },
-  { value: 'done',        label: 'İcra edildi',    color: '#059669', bg: 'rgba(5,150,105,0.10)',   border: 'rgba(5,150,105,0.25)'  },
-  { value: 'blocked',     label: 'Bloklanıb',      color: '#dc2626', bg: 'rgba(220,38,38,0.10)',   border: 'rgba(220,38,38,0.25)'  },
+  { value: 'pending',     label: 'To Do',       color: '#64748b', bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.28)' },
+  { value: 'in_progress', label: 'In Progress',  color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.28)'  },
+  { value: 'done',        label: 'Done',         color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.28)'   },
+  { value: 'blocked',     label: 'Blocked',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.28)'   },
 ]
 
 const emptyPlan = () => ({

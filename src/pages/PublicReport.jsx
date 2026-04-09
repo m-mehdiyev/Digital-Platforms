@@ -449,10 +449,10 @@ function GanttChart({ planned, acc }) {
   if (!items.length) return null
 
   const ST_COLORS = {
-    pending: '#9ca3af', in_progress: '#60a5fa', done: '#34d399', blocked: '#f87171',
+    pending: '#64748b', in_progress: '#3b82f6', done: '#22c55e', blocked: '#ef4444',
   }
   const ST_LABELS = {
-    pending: 'Gözləyir', in_progress: 'İcrada', done: 'Edildi', blocked: 'Blok',
+    pending: 'To Do', in_progress: 'In Progress', done: 'Done', blocked: 'Blocked',
   }
 
   return (
@@ -510,10 +510,10 @@ function GanttChart({ planned, acc }) {
       </div>
       <div className="pr-gleg">
         {[
-          { label: 'İcra gözləyir', color: '#9ca3af' },
-          { label: 'İcrada',        color: '#60a5fa' },
-          { label: 'İcra edildi',   color: '#34d399' },
-          { label: 'Bloklanıb',     color: '#f87171' },
+          { label: 'To Do',        color: '#64748b' },
+          { label: 'In Progress',  color: '#3b82f6' },
+          { label: 'Done',         color: '#22c55e' },
+          { label: 'Blocked',      color: '#ef4444' },
         ].map(s => (
           <div key={s.label} className="pr-gleg-i">
             <div className="pr-gleg-bar" style={{ background: s.color + '40', border: `1px solid ${s.color}80` }} />
