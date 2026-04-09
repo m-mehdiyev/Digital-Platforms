@@ -389,35 +389,37 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
           </div>
         )}
 
-        {/* Yalnız Görülən işlər — tam genişlik */}
-        <div className="pr-gpanel">
-          <div className="pr-panel-hd" style={{ color: acc }}>
-            <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>✓</span>
-            Görülən işlər
-          </div>
-          <ul className="pr-ilist">
-            {done.length ? done.map((d, i) => (
-              <li key={i}><span className="pr-im" style={{ color: '#16a34a' }}>✓</span><span>{d}</span></li>
-            )) : <div className="pr-empty-txt">Məlumat yoxdur</div>}
-          </ul>
-        </div>
-
-        {/* Şəkillər — sabit yüksəklikli, heç vaxt böyüməyən kart */}
-        {screenshots.length > 0 && (
-          <div className="pr-gpanel" style={{ marginTop: 12 }}>
+        {/* Görülən işlər + Şəkillər — yan-yana */}
+        <div style={{ display: 'grid', gridTemplateColumns: screenshots.length > 0 ? '1fr 220px' : '1fr', gap: 12, alignItems: 'start' }}>
+          <div className="pr-gpanel">
             <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>📷</span>
-              Ekran görüntüləri ({screenshots.length})
+              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>✓</span>
+              Görülən işlər
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, maxHeight: 200, overflowY: 'auto', padding: '2px 0 4px' }}>
-              {screenshots.map((src, i) => (
-                <button key={i} className="pr-ss-thumb" onClick={() => setLightbox(i)} type="button" style={{ aspectRatio: '16/10', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'transparent', padding: 0 }}>
-                  <img src={src} alt={`${p.name} screenshot ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
-                </button>
-              ))}
-            </div>
+            <ul className="pr-ilist">
+              {done.length ? done.map((d, i) => (
+                <li key={i}><span className="pr-im" style={{ color: '#16a34a' }}>✓</span><span>{d}</span></li>
+              )) : <div className="pr-empty-txt">Məlumat yoxdur</div>}
+            </ul>
           </div>
-        )}
+
+          {screenshots.length > 0 && (
+            <div className="pr-gpanel">
+              <div className="pr-panel-hd" style={{ color: acc }}>
+                <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>📷</span>
+                Ekran görüntüləri ({screenshots.length})
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7, maxHeight: 280, overflowY: 'auto', padding: '2px 0 4px' }}>
+                {screenshots.map((src, i) => (
+                  <button key={i} className="pr-ss-thumb" onClick={() => setLightbox(i)} type="button"
+                    style={{ aspectRatio: '16/10', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: 'transparent', padding: 0, display: 'block', width: '100%' }}>
+                    <img src={src} alt={`${p.name} screenshot ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {hasGantt && (
           <div className="pr-gpanel" style={{ marginTop: 12 }}>
@@ -460,7 +462,7 @@ function GanttChart({ planned, acc }) {
           <thead>
             <tr>
               <th className="pr-gnh" />
-              <th style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', fontWeight: 400, textAlign: 'left', paddingBottom: 6, whiteSpace: 'nowrap', minWidth: 76 }}>Status</th>
+
               {MONTHS_AZ.map((m, i) => (
                 <th key={i}>{m}</th>
               ))}
@@ -477,9 +479,9 @@ function GanttChart({ planned, acc }) {
 
               return (
                 <tr key={ri}>
-                  <td className="pr-gnd">{item.text}</td>
-                  <td style={{ paddingRight: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: barColor, background: barColor + '25', borderRadius: 5, padding: '2px 6px', whiteSpace: 'nowrap' }}>{stLabel}</span>
+                  <td className="pr-gnd">
+                    <span style={{ fontSize: 9, fontWeight: 700, color: barColor, marginRight: 4, opacity: .9 }}>●</span>
+                    {item.text}
                   </td>
                   {MONTHS_AZ.map((_, mi) => {
                     const inRange = mi >= start && mi <= end
@@ -1489,8 +1491,8 @@ function GlobalStyles() {
       }
 
       .pr-gnh {
-        min-width: 260px;
-        width: 260px;
+        min-width: 300px;
+        width: 300px;
         text-align: left !important;
       }
 
@@ -1509,8 +1511,8 @@ function GlobalStyles() {
         white-space: normal;
         overflow: visible;
         text-overflow: unset;
-        min-width: 260px;
-        width: 260px;
+        min-width: 300px;
+        width: 300px;
         max-width: none;
       }
 
