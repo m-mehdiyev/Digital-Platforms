@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useDropzone } from 'react-dropzone'
 import { supabase } from '../../lib/supabase'
 import { Send, Eye, Edit2, X, Plus, Trash2, Save, Flag, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -143,7 +144,10 @@ export default function PublishReport() {
       })
       if (error) throw new Error(error.message)
 
-      toast.success(`✅ "${newPeriodName}" dövrü üçün hesabat yaradıldı!`)
+      // Kopyalamadan sonra redaktə rejimini aç (yayımlamadan əvvəl)
+      setEditData(newData)
+      setEditing(true)
+      toast.success(`📋 "${newPeriodName}" yaradıldı — redaktə edib yayımlaya bilərsiniz`)
       setCopyModal(null)
       setNewPeriodName('')
       fetchData()
@@ -263,7 +267,24 @@ export default function PublishReport() {
             <div className="card-title">📋 Tam Önizləmə</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               {preview.platforms.map((p, idx) => (
-                <PlatformPreviewCard key={p.id} p={p} idx={idx}/>
+                <PlatformPreviewCard key={p.id} p={p} idx={idx}
+                  onAddScreenshots={(urls) => {
+                    setPreview(prev => ({
+                      ...prev,
+                      platforms: prev.platforms.map(pl =>
+                        pl.id === p.id ? { ...pl, screenshots: [...(pl.screenshots||[]), ...urls] } : pl
+                      )
+                    }))
+                  }}
+                  onRemoveScreenshot={(si) => {
+                    setPreview(prev => ({
+                      ...prev,
+                      platforms: prev.platforms.map(pl =>
+                        pl.id === p.id ? { ...pl, screenshots: (pl.screenshots||[]).filter((_,j)=>j!==si) } : pl
+                      )
+                    }))
+                  }}
+                />
               ))}
             </div>
           </div>
@@ -303,7 +324,7 @@ export default function PublishReport() {
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
               <button className="btn btn-secondary" onClick={() => setCopyModal(null)}>Ləğv et</button>
               <button className="btn btn-success" onClick={copyReport} disabled={busy || !newPeriodName.trim()}>
-                <Copy size={13}/> {busy ? 'Kopyalanır...' : 'Kopyala və Yayımla'}
+                <Copy size={13}/> {busy ? 'Kopyalanır...' : 'Kopyala və Redaktə Et'}
               </button>
             </div>
           </div>
@@ -381,7 +402,7 @@ function MiniGantt({ planned, acc }) {
 }
 
 // ── Platform preview kartı ────────────────────────
-function PlatformPreviewCard({ p, idx }) {
+function PlatformPreviewCard({ p, idx, onAddScreenshots, onRemoveScreenshot }) {
   const acc = p.color || '#6366f1'
   const isEven = idx % 2 === 0
   const plannedTexts = p.planned?.map(i => typeof i === 'string' ? i : i.text) || []
@@ -451,21 +472,13 @@ function PlatformPreviewCard({ p, idx }) {
           </div>
         </div>
 
-        {/* Şəkillər — sabit ölçülü grid, scroll */}
-        {p.screenshots?.length > 0 && (
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff' }}>
-              📷 Şəkillər ({p.screenshots.length})
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, maxHeight: 220, overflowY: 'auto', padding: '4px 0' }}>
-              {p.screenshots.map((ss, i) => (
-                <div key={i} style={{ aspectRatio: '16/10', borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
-                  <img src={ss} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Şəkillər — əlavə etmə ilə */}
+        <PreviewScreenshots
+          screenshots={p.screenshots || []}
+          acc={acc}
+          onAdd={onAddScreenshots}
+          onRemove={onRemoveScreenshot}
+        />
 
         <MiniGantt planned={p.planned} acc={acc} />
       </div>
@@ -615,6 +628,48 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Önizləmədə şəkil əlavəsi ─────────────────────────────
+function PreviewScreenshots({ screenshots, acc, onAdd, onRemove }) {
+  const onDrop = useCallback(files => {
+    if (!onAdd) return
+    const urls = files.map(f => URL.createObjectURL(f))
+    onAdd(urls)
+  }, [onAdd])
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop, accept: { 'image/*': [] }, noClick: false
+  })
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>📷 Şəkillər ({screenshots.length})</span>
+      </div>
+      {screenshots.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8, maxHeight: 200, overflowY: 'auto', padding: '2px 0', marginBottom: 10 }}>
+          {screenshots.map((ss, i) => (
+            <div key={i} style={{ position: 'relative', aspectRatio: '16/10' }}>
+              <img src={ss} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb', display: 'block' }}/>
+              {onRemove && (
+                <button onClick={() => onRemove(i)}
+                  style={{ position:'absolute', top:-6, right:-6, width:18, height:18, borderRadius:'50%', background:'#dc2626', color:'#fff', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {onAdd && (
+        <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? acc : '#c4b5fd'}`, borderRadius: 10, padding: '14px 16px', textAlign: 'center', cursor: 'pointer', background: isDragActive ? `${acc}06` : 'rgba(99,102,241,0.02)', transition: 'all .2s' }}>
+          <input {...getInputProps()}/>
+          <div style={{ fontSize: 20, color: '#a5b4fc', marginBottom: 4 }}>↑</div>
+          <div style={{ fontSize: 12, color: '#9ca3af' }}>Şəkil əlavə etmək üçün klik edin</div>
+        </div>
+      )}
     </div>
   )
 }

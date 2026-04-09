@@ -389,47 +389,17 @@ function PlatformSlide({ p, idx, total, goToSlide }) {
           </div>
         )}
 
-        {/* Görülən + Road Map — 2 sütun */}
-        <div className="pr-cols2 pr-cols2-swap">
-          <div className="pr-gpanel">
-            <div className="pr-panel-hd" style={{ color: acc }}>
-              <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>✓</span>
-              Görülən işlər
-            </div>
-            <ul className="pr-ilist">
-              {done.length ? done.map((d, i) => (
-                <li key={i}><span className="pr-im" style={{ color: '#16a34a' }}>✓</span><span>{d}</span></li>
-              )) : <div className="pr-empty-txt">Məlumat yoxdur</div>}
-            </ul>
+        {/* Yalnız Görülən işlər — tam genişlik */}
+        <div className="pr-gpanel">
+          <div className="pr-panel-hd" style={{ color: acc }}>
+            <span className="pr-panel-hd-ico" style={{ background: `${acc}1c`, color: acc }}>✓</span>
+            Görülən işlər
           </div>
-
-          <div className="pr-gpanel">
-            <div className="pr-panel-hd" style={{ color: '#a78bfa' }}>
-              <span className="pr-panel-hd-ico" style={{ background: 'rgba(167,139,250,.15)', color: '#a78bfa' }}>🗺</span>
-              Yol Xəritəsi
-            </div>
-            {plannedObjects.length ? (
-              <ul className="pr-ilist">
-                {plannedObjects.map((item, i) => {
-                  const txt = typeof item === 'string' ? item : item.text
-                  const status = typeof item === 'object' ? (item.status || 'pending') : 'pending'
-                  const ST_MAP = {
-                    pending:     { label: 'İcra gözləyir', color: '#9ca3af', bg: 'rgba(156,163,175,.15)' },
-                    in_progress: { label: 'İcrada',        color: '#60a5fa', bg: 'rgba(96,165,250,.15)'  },
-                    done:        { label: 'İcra edildi',   color: '#34d399', bg: 'rgba(52,211,153,.15)'  },
-                    blocked:     { label: 'Bloklanıb',     color: '#f87171', bg: 'rgba(248,113,113,.15)' },
-                  }
-                  const st = ST_MAP[status] || ST_MAP.pending
-                  return (
-                    <li key={i} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: st.color, background: st.bg, borderRadius: 6, padding: '2px 8px', display: 'inline-block' }}>{st.label}</span>
-                      <span style={{ fontSize: 13 }}>{txt}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            ) : <div className="pr-empty-txt">Məlumat yoxdur</div>}
-          </div>
+          <ul className="pr-ilist">
+            {done.length ? done.map((d, i) => (
+              <li key={i}><span className="pr-im" style={{ color: '#16a34a' }}>✓</span><span>{d}</span></li>
+            )) : <div className="pr-empty-txt">Məlumat yoxdur</div>}
+          </ul>
         </div>
 
         {/* Şəkillər — sabit yüksəklikli, heç vaxt böyüməyən kart */}
@@ -1519,8 +1489,8 @@ function GlobalStyles() {
       }
 
       .pr-gnh {
-        min-width: 200px;
-        width: 200px;
+        min-width: 260px;
+        width: 260px;
         text-align: left !important;
       }
 
@@ -1539,8 +1509,8 @@ function GlobalStyles() {
         white-space: normal;
         overflow: visible;
         text-overflow: unset;
-        min-width: 200px;
-        width: 200px;
+        min-width: 260px;
+        width: 260px;
         max-width: none;
       }
 
