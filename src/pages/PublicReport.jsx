@@ -462,6 +462,7 @@ function GanttChart({ planned, acc }) {
           <thead>
             <tr>
               <th className="pr-gnh" />
+              <th className="pr-gst-th" />
 
               {MONTHS_AZ.map((m, i) => (
                 <th key={i}>{m}</th>
@@ -479,9 +480,9 @@ function GanttChart({ planned, acc }) {
 
               return (
                 <tr key={ri}>
-                  <td className="pr-gnd">
-                    <span style={{ verticalAlign: 'middle', marginRight: 6 }}>{item.text}</span>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: barColor, background: barColor + '22', border: `1px solid ${barColor}55`, borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap', display: 'inline-block', letterSpacing: '.02em', verticalAlign: 'middle', flexShrink: 0 }}>{stLabel}</span>
+                  <td className="pr-gnd">{item.text}</td>
+                  <td className="pr-gst">
+                    <span style={{ fontSize: 9, fontWeight: 700, color: barColor, background: barColor + '22', border: `1px solid ${barColor}55`, borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap', display: 'inline-block', letterSpacing: '.02em' }}>{stLabel}</span>
                   </td>
                   {MONTHS_AZ.map((_, mi) => {
                     const inRange = mi >= start && mi <= end
@@ -1500,6 +1501,18 @@ function GlobalStyles() {
         height: 42px;
         position: relative;
         vertical-align: top;
+      }
+
+      .pr-gst {
+        width: 88px;
+        min-width: 88px;
+        padding-right: 10px;
+        vertical-align: middle;
+      }
+
+      .pr-gst-th {
+        width: 88px;
+        min-width: 88px;
       }
 
       .pr-gnd {
