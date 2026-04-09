@@ -480,8 +480,8 @@ function GanttChart({ planned, acc }) {
               return (
                 <tr key={ri}>
                   <td className="pr-gnd">
-                    <span style={{ fontSize: 9, fontWeight: 700, color: barColor, marginRight: 4, opacity: .9 }}>●</span>
-                    {item.text}
+                    <span style={{ verticalAlign: 'middle', marginRight: 6 }}>{item.text}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: barColor, background: barColor + '22', border: `1px solid ${barColor}55`, borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap', display: 'inline-block', letterSpacing: '.02em', verticalAlign: 'middle', flexShrink: 0 }}>{stLabel}</span>
                   </td>
                   {MONTHS_AZ.map((_, mi) => {
                     const inRange = mi >= start && mi <= end
@@ -1491,8 +1491,8 @@ function GlobalStyles() {
       }
 
       .pr-gnh {
-        min-width: 300px;
-        width: 300px;
+        min-width: 340px;
+        width: 340px;
         text-align: left !important;
       }
 
@@ -1511,8 +1511,8 @@ function GlobalStyles() {
         white-space: normal;
         overflow: visible;
         text-overflow: unset;
-        min-width: 300px;
-        width: 300px;
+        min-width: 340px;
+        width: 340px;
         max-width: none;
       }
 
