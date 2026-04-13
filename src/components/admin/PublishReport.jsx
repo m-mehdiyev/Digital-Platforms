@@ -622,6 +622,28 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
                     <textarea style={{...IS, resize:'vertical', minHeight:54}} value={p.issue||''}
                       onChange={e => onChange(p.id,'issue',e.target.value)} placeholder="Mövcud problem..."/>
                   </div>
+
+                  {/* Şəkillər */}
+                  <div>
+                    {ST('#6366f1', '📷 Ekran Görüntüləri')}
+                    {(p.screenshots || []).length > 0 && (
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(100px,1fr))', gap:8, marginBottom:10, maxHeight:160, overflowY:'auto' }}>
+                        {(p.screenshots || []).map((ss, i) => (
+                          <div key={i} style={{ position:'relative', aspectRatio:'16/10' }}>
+                            <img src={ss} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:8, border:'1.5px solid #e5e7eb', display:'block' }}/>
+                            <button onClick={() => onChange(p.id,'screenshots',(p.screenshots||[]).filter((_,j)=>j!==i))}
+                              style={{ position:'absolute', top:-6, right:-6, width:18, height:18, borderRadius:'50%', background:'#dc2626', color:'#fff', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <EditModalDropzone onAdd={files => {
+                      const urls = files.map(f => URL.createObjectURL(f))
+                      onChange(p.id, 'screenshots', [...(p.screenshots||[]), ...urls])
+                    }}/>
+                  </div>
                 </div>
               </div>
             )
@@ -670,6 +692,27 @@ function PreviewScreenshots({ screenshots, acc, onAdd, onRemove }) {
           <div style={{ fontSize: 12, color: '#9ca3af' }}>Şəkil əlavə etmək üçün klik edin</div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── EditModal üçün kiçik dropzone ────────────────────────
+function EditModalDropzone({ onAdd }) {
+  const onDrop = useCallback(files => onAdd(files), [onAdd])
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop, accept: { 'image/*': [] }
+  })
+  return (
+    <div {...getRootProps()} style={{
+      border: `2px dashed ${isDragActive ? '#6366f1' : '#c4b5fd'}`,
+      borderRadius: 10, padding: '12px 16px', textAlign: 'center',
+      cursor: 'pointer',
+      background: isDragActive ? 'rgba(99,102,241,.06)' : 'rgba(99,102,241,.02)',
+      transition: 'all .2s'
+    }}>
+      <input {...getInputProps()}/>
+      <div style={{ fontSize: 18, color: '#a5b4fc', marginBottom: 3 }}>↑</div>
+      <div style={{ fontSize: 12, color: '#9ca3af' }}>Şəkil əlavə etmək üçün klik edin</div>
     </div>
   )
 }
