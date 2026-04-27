@@ -59,8 +59,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
 
   useEffect(() => {
     if (!selectedPlatformId || !period) return
-    const t = setTimeout(() => fetchExisting(), 700)
-    return () => clearTimeout(t)
+    fetchExisting()
   }, [selectedPlatformId, period])
 
   async function fetchPlatforms() {
@@ -117,21 +116,34 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
     if (!period) return toast.error('Dövrü daxil edin')
     setSaving(true)
     try {
-      let pid = existingPeriodId
-      if (!pid) {
+      // Stale closure problemini aradan qaldırmaq üçün DB-dən birbaşa oxuyuruq
+      const { data: existing } = await supabase
+        .from('report_periods')
+        .select('id')
+        .eq('platform_id', selectedPlatformId)
+        .eq('period_label', period)
+        .maybeSingle()
+
+      let pid
+      if (existing?.id) {
+        pid = existing.id
+        await supabase.from('report_periods')
+          .update({ issue_text: issue })
+          .eq('id', pid)
+      } else {
         const { data: pd, error } = await supabase.from('report_periods')
           .insert({ platform_id: selectedPlatformId, period_label: period, issue_text: issue })
           .select().single()
         if (error) throw new Error(error.message)
         pid = pd.id
-      } else {
-        await supabase.from('report_periods').update({ issue_text: issue }).eq('id', pid)
       }
 
+      // attachments da silinir ki köhnə şəkillər qalmasın
       await Promise.all([
         supabase.from('completed_items').delete().eq('period_id', pid),
         supabase.from('planned_items').delete().eq('period_id', pid),
         supabase.from('statistics').delete().eq('period_id', pid),
+        supabase.from('attachments').delete().eq('period_id', pid),
       ])
 
       const done = doneItems.filter(t => t.trim())
@@ -159,7 +171,7 @@ export default function ReportInput({ platformId, isSuperAdmin }) {
         kpiRows.map((k, idx) => ({ period_id: pid, label: k.label, value: k.value, order_index: idx }))
       )
 
-      for (const ss of screenshots.filter(s => s.isNew && s.file)) {
+      for (const ss of screenshots.filter(s => s.file)) {
         const path = `screenshots/${pid}/${Date.now()}.${ss.name.split('.').pop()}`
         const { error: upErr } = await supabase.storage.from('platform-assets').upload(path, ss.file)
         if (upErr) { toast.error('Şəkil yüklənmədi: ' + ss.name); continue }
