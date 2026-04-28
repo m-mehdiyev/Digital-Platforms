@@ -64,7 +64,7 @@ export default function PublishReport() {
   const [published, setPublished]   = useState([])
   const [copyModal, setCopyModal]   = useState(null) // { report }
   const [newPeriodName, setNewPeriodName] = useState('')
-  const [activePublishedId, setActivePublishedId] = useState(null) // redaktə edilən report-un DB id-si
+  const [activePublishedId, setActivePublishedId] = useState('') // redaktə edilən report-un DB id-si (string)
 
   useEffect(() => { fetchData() }, [])
 
@@ -89,9 +89,15 @@ export default function PublishReport() {
     try {
       const data = await gatherReportData(period, platforms)
       setPreview(data)
-      // Mövcud published report varsa id-sini saxla
-      const existing = published.find(p => p.period_label === period)
-      setActivePublishedId(existing?.id ? String(existing.id) : null)
+      // Mövcud published report-un id-sini birbaşa DB-dən çək
+      const { data: existingRec } = await supabase
+        .from('published_reports')
+        .select('id')
+        .eq('period_label', period)
+        .order('published_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setActivePublishedId(existingRec ? String(existingRec.id) : '')
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
   }
@@ -106,7 +112,7 @@ export default function PublishReport() {
       })
       if (error) throw new Error(error.message)
       toast.success('✅ Hesabat yayımlandı!')
-      setPreview(null); setEditing(false); setEditData(null); setActivePublishedId(null)
+      setPreview(null); setEditing(false); setEditData(null); setActivePublishedId("")
       fetchData()
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
@@ -192,22 +198,38 @@ export default function PublishReport() {
       }
 
       // 2. Supabase-də published_reports-u yenilə və ya yeni insert et
-      if (activePublishedId) {
-        // Mövcud hesabatı UPDATE et
-        const pubId = String(activePublishedId)
+      // Mövcud hesabatı DB-dən id ilə tap, UPDATE et
+      const pubId = activePublishedId && activePublishedId.length > 10 ? activePublishedId : null
+      if (pubId) {
         const { error } = await supabase
           .from('published_reports')
           .update({ report_data: updatedData, published_at: new Date().toISOString() })
           .eq('id', pubId)
-        if (error) throw new Error(error.message)
+        if (error) throw new Error('UPDATE xətası: ' + error.message)
       } else {
-        // Yeni hesabat olaraq INSERT et
-        const { data: inserted, error } = await supabase
+        // period_label ilə tap — varsa update, yoxdursa insert
+        const { data: rec } = await supabase
           .from('published_reports')
-          .insert({ period_label: updatedData.period, report_data: updatedData, published_at: new Date().toISOString() })
-          .select('id').single()
-        if (error) throw new Error(error.message)
-        setActivePublishedId(inserted?.id ? String(inserted.id) : null)
+          .select('id')
+          .eq('period_label', updatedData.period)
+          .order('published_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (rec?.id) {
+          const { error } = await supabase
+            .from('published_reports')
+            .update({ report_data: updatedData, published_at: new Date().toISOString() })
+            .eq('id', String(rec.id))
+          if (error) throw new Error('UPDATE xətası: ' + error.message)
+          setActivePublishedId(String(rec.id))
+        } else {
+          const { data: ins, error } = await supabase
+            .from('published_reports')
+            .insert({ period_label: updatedData.period, report_data: updatedData, published_at: new Date().toISOString() })
+            .select('id').single()
+          if (error) throw new Error('INSERT xətası: ' + error.message)
+          setActivePublishedId(String(ins.id))
+        }
       }
 
       setEditData(updatedData)
@@ -252,7 +274,7 @@ export default function PublishReport() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
             <label className="form-label">Hesabat Dövrü</label>
-            <select className="form-select" value={period} onChange={e => { setPeriod(e.target.value); setPreview(null); setActivePublishedId(null) }}>
+            <select className="form-select" value={period} onChange={e => { setPeriod(e.target.value); setPreview(null); setActivePublishedId("") }}>
               <option value="">Seçin...</option>
               {periods.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -285,7 +307,7 @@ export default function PublishReport() {
                         if (data) {
                           setPreview(data.report_data)
                           setEditData(data.report_data)
-                          setActivePublishedId(pub?.id ? String(pub.id) : null)
+                          setActivePublishedId(pub?.id ? String(pub.id) : '')
                           setEditing(true)
                         }
                       } catch(e) { toast.error('Xəta: ' + e.message) }
