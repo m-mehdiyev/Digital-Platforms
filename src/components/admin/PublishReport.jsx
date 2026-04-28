@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { supabase } from '../../lib/supabase'
-import { Send, Eye, Edit2, X, Plus, Trash2, Save, Flag, Copy } from 'lucide-react'
+import { Send, Eye, Edit2, Save, Flag, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const MONTHS = ['Yan','Fev','Mar','Apr','May','İyn','İyl','Avq','Sep','Okt','Noy','Dek']
@@ -53,18 +53,22 @@ async function gatherReportData(period, platforms) {
 }
 
 export default function PublishReport() {
-  const [period, setPeriod]         = useState('')
-  const [periods, setPeriods]       = useState([])
-  const [platforms, setPlatforms]   = useState([])
-  const [preview, setPreview]       = useState(null)
-  const [busy, setBusy]             = useState(false)
-  const [loading, setLoading]       = useState(true)
-  const [editing, setEditing]       = useState(false)
-  const [editData, setEditData]     = useState(null)
-  const [published, setPublished]   = useState([])
-  const [copyModal, setCopyModal]   = useState(null) // { report }
+  const [period, setPeriod]       = useState('')
+  const [periods, setPeriods]     = useState([])
+  const [platforms, setPlatforms] = useState([])
+  const [preview, setPreview]     = useState(null)
+  const [busy, setBusy]           = useState(false)
+  const [loading, setLoading]     = useState(true)
+  const [editing, setEditing]     = useState(false)
+  const [editData, setEditData]   = useState(null)
+  const [published, setPublished] = useState([])
+  const [copyModal, setCopyModal] = useState(null)
   const [newPeriodName, setNewPeriodName] = useState('')
-  const [activePublishedId, setActivePublishedId] = useState('') // redaktə edilən report-un DB id-si (string)
+
+  // Ref: həmişə ən son editData-ya sahibdir (stale closure problemini həll edir)
+  const editDataRef = useRef(null)
+  // Cari redaktə edilən published_report-un UUID-si
+  const activePubIdRef = useRef(null)
 
   useEffect(() => { fetchData() }, [])
 
@@ -89,15 +93,15 @@ export default function PublishReport() {
     try {
       const data = await gatherReportData(period, platforms)
       setPreview(data)
-      // Mövcud published report-un id-sini birbaşa DB-dən çək
-      const { data: existingRec } = await supabase
+      // DB-dən mövcud published id-ni çək
+      const { data: rec } = await supabase
         .from('published_reports')
         .select('id')
         .eq('period_label', period)
         .order('published_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      setActivePublishedId(existingRec ? String(existingRec.id) : '')
+      activePubIdRef.current = rec?.id ? String(rec.id) : null
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
   }
@@ -112,84 +116,58 @@ export default function PublishReport() {
       })
       if (error) throw new Error(error.message)
       toast.success('✅ Hesabat yayımlandı!')
-      setPreview(null); setEditing(false); setEditData(null); setActivePublishedId("")
+      setPreview(null); setEditing(false)
+      setEditData(null); editDataRef.current = null
+      activePubIdRef.current = null
       fetchData()
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
   }
 
-  // ── Hesabatı kopyala (yeni dövr adı ilə) ──────────────
-  async function copyReport() {
-    if (!newPeriodName.trim()) return toast.error('Yeni dövr adı daxil edin')
-    if (!copyModal?.report) return
-    setBusy(true)
-    try {
-      const srcReport = copyModal.report
-
-      // Mövcud published report-un tam datasını çəkirik
-      const { data: srcData } = await supabase
-        .from('published_reports')
-        .select('report_data')
-        .eq('id', srcReport.id)
-        .single()
-
-      if (!srcData) throw new Error('Mənbə hesabat tapılmadı')
-
-      // Road map-i kopyalayırıq, şəkilləri sıfırlayırıq
-      const newData = JSON.parse(JSON.stringify(srcData.report_data))
-      newData.period = newPeriodName.trim()
-      newData.generatedAt = new Date().toISOString()
-      newData.platforms = newData.platforms.map(p => ({
-        ...p,
-        screenshots: [],       // şəkillər sıfırlanır
-        done: [],              // görülən işlər sıfırlanır
-        // planned (road map) olduğu kimi qalır, statuslar da
-      }))
-
-      const { error } = await supabase.from('published_reports').insert({
-        period_label: newPeriodName.trim(),
-        report_data: newData,
-        published_at: new Date().toISOString(),
-        copied_from: srcReport.id,
-      })
-      if (error) throw new Error(error.message)
-
-      // Kopyalamadan sonra redaktə rejimini aç (yayımlamadan əvvəl)
-      setEditData(newData)
-      setEditing(true)
-      toast.success(`📋 "${newPeriodName}" yaradıldı — redaktə edib yayımlaya bilərsiniz`)
-      setCopyModal(null)
-      setNewPeriodName('')
-      fetchData()
-    } catch (e) { toast.error('Xəta: ' + e.message) }
-    setBusy(false)
-  }
-
-  function openEdit(reportId) {
-    setEditData(JSON.parse(JSON.stringify(preview)))
-    if (reportId) setActivePublishedId(String(reportId))
+  function openEdit(pubId) {
+    const base = JSON.parse(JSON.stringify(preview))
+    editDataRef.current = base
+    setEditData(base)
+    if (pubId) activePubIdRef.current = String(pubId)
     setEditing(true)
   }
 
+  // onChange: editData-nı həm state-də həm ref-də saxla
+  function editPlat(platId, field, val) {
+    setEditData(prev => {
+      const next = {
+        ...prev,
+        platforms: prev.platforms.map(p => p.id === platId ? { ...p, [field]: val } : p)
+      }
+      editDataRef.current = next
+      return next
+    })
+  }
+
   async function saveEdit() {
+    // Ref-dən oxu — heç vaxt köhnə dəyər olmur
+    const currentData = editDataRef.current
+    if (!currentData) return toast.error('Redaktə data tapılmadı')
     setBusy(true)
     try {
-      // 1. blob: URL-ləri Storage-ə yüklə, real URL-lərlə əvəz et
-      const updatedData = JSON.parse(JSON.stringify(editData))
+      // 1. blob URL-ləri Storage-ə yüklə
+      const updatedData = JSON.parse(JSON.stringify(currentData))
       for (const plat of updatedData.platforms) {
         const uploaded = []
         for (const url of (plat.screenshots || [])) {
           if (url.startsWith('blob:')) {
-            const resp = await fetch(url)
-            const blob = await resp.blob()
-            const ext = blob.type.split('/')[1] || 'png'
-            const path = `screenshots/edit_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
-            const { error: upErr } = await supabase.storage
-              .from('platform-assets')
-              .upload(path, blob, { contentType: blob.type })
-            if (upErr) { toast.error('Şəkil yüklənmədi: ' + upErr.message); continue }
-            const { data: ud } = supabase.storage.from('platform-assets').getPublicUrl(path)
-            uploaded.push(ud.publicUrl)
+            try {
+              const resp = await fetch(url)
+              const blob = await resp.blob()
+              const ext = blob.type.split('/')[1] || 'png'
+              const path = `screenshots/edit_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+              const { error: upErr } = await supabase.storage
+                .from('platform-assets')
+                .upload(path, blob, { contentType: blob.type })
+              if (upErr) { toast.error('Şəkil yüklənmədi'); continue }
+              const { data: ud } = supabase.storage.from('platform-assets').getPublicUrl(path)
+              uploaded.push(ud.publicUrl)
+            } catch { toast.error('Şəkil xətası'); continue }
           } else {
             uploaded.push(url)
           }
@@ -197,41 +175,42 @@ export default function PublishReport() {
         plat.screenshots = uploaded
       }
 
-      // 2. Supabase-də published_reports-u yenilə və ya yeni insert et
-      // Mövcud hesabatı DB-dən id ilə tap, UPDATE et
-      const pubId = activePublishedId && activePublishedId.length > 10 ? activePublishedId : null
+      // 2. UPDATE və ya INSERT
+      const pubId = activePubIdRef.current
       if (pubId) {
+        // Mövcud hesabatı yenilə
         const { error } = await supabase
           .from('published_reports')
           .update({ report_data: updatedData, published_at: new Date().toISOString() })
           .eq('id', pubId)
-        if (error) throw new Error('UPDATE xətası: ' + error.message)
+        if (error) throw new Error(error.message)
       } else {
-        // period_label ilə tap — varsa update, yoxdursa insert
-        const { data: rec } = await supabase
+        // period_label ilə axtar
+        const { data: existing } = await supabase
           .from('published_reports')
           .select('id')
           .eq('period_label', updatedData.period)
           .order('published_at', { ascending: false })
           .limit(1)
           .maybeSingle()
-        if (rec?.id) {
+        if (existing?.id) {
           const { error } = await supabase
             .from('published_reports')
             .update({ report_data: updatedData, published_at: new Date().toISOString() })
-            .eq('id', String(rec.id))
-          if (error) throw new Error('UPDATE xətası: ' + error.message)
-          setActivePublishedId(String(rec.id))
+            .eq('id', String(existing.id))
+          if (error) throw new Error(error.message)
+          activePubIdRef.current = String(existing.id)
         } else {
           const { data: ins, error } = await supabase
             .from('published_reports')
             .insert({ period_label: updatedData.period, report_data: updatedData, published_at: new Date().toISOString() })
             .select('id').single()
-          if (error) throw new Error('INSERT xətası: ' + error.message)
-          setActivePublishedId(String(ins.id))
+          if (error) throw new Error(error.message)
+          activePubIdRef.current = String(ins.id)
         }
       }
 
+      editDataRef.current = updatedData
       setEditData(updatedData)
       setPreview(updatedData)
       setEditing(false)
@@ -243,11 +222,49 @@ export default function PublishReport() {
     setBusy(false)
   }
 
-  function editPlat(platId, field, val) {
-    setEditData(prev => ({
-      ...prev,
-      platforms: prev.platforms.map(p => p.id === platId ? { ...p, [field]: val } : p)
-    }))
+  async function copyReport() {
+    if (!newPeriodName.trim()) return toast.error('Yeni dövr adı daxil edin')
+    if (!copyModal?.report) return
+    setBusy(true)
+    try {
+      const srcId = String(copyModal.report.id)
+      const { data: srcData, error: fetchErr } = await supabase
+        .from('published_reports')
+        .select('report_data')
+        .eq('id', srcId)
+        .single()
+      if (fetchErr || !srcData) throw new Error('Mənbə hesabat tapılmadı')
+
+      const newData = JSON.parse(JSON.stringify(srcData.report_data))
+      newData.period = newPeriodName.trim()
+      newData.generatedAt = new Date().toISOString()
+      newData.platforms = newData.platforms.map(p => ({
+        ...p, screenshots: [], done: []
+      }))
+
+      const { data: ins, error } = await supabase
+        .from('published_reports')
+        .insert({
+          period_label: newPeriodName.trim(),
+          report_data: newData,
+          published_at: new Date().toISOString(),
+          copied_from: srcId,
+        })
+        .select('id').single()
+      if (error) throw new Error(error.message)
+
+      // Kopyalamadan sonra redaktə modalını aç
+      activePubIdRef.current = String(ins.id)
+      editDataRef.current = newData
+      setEditData(newData)
+      setPreview(newData)
+      setEditing(true)
+      toast.success(`📋 "${newPeriodName}" yaradıldı — redaktə edib yayımlaya bilərsiniz`)
+      setCopyModal(null)
+      setNewPeriodName('')
+      fetchData()
+    } catch (e) { toast.error('Xəta: ' + e.message) }
+    setBusy(false)
   }
 
   if (loading) return <div className="loading-screen"><div className="spinner"/></div>
@@ -261,7 +278,9 @@ export default function PublishReport() {
         </div>
         {preview && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={openEdit}><Edit2 size={14}/> Redaktə Et</button>
+            <button className="btn btn-secondary" onClick={() => openEdit(activePubIdRef.current)}>
+              <Edit2 size={14}/> Redaktə Et
+            </button>
             <button className="btn btn-success" onClick={() => publish(preview)} disabled={busy}>
               <Send size={15}/> {busy ? 'Yayımlanır...' : 'Yayımla'}
             </button>
@@ -274,7 +293,11 @@ export default function PublishReport() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
             <label className="form-label">Hesabat Dövrü</label>
-            <select className="form-select" value={period} onChange={e => { setPeriod(e.target.value); setPreview(null); setActivePublishedId("") }}>
+            <select className="form-select" value={period} onChange={e => {
+              setPeriod(e.target.value)
+              setPreview(null)
+              activePubIdRef.current = null
+            }}>
               <option value="">Seçin...</option>
               {periods.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -285,7 +308,7 @@ export default function PublishReport() {
         </div>
       </div>
 
-      {/* Yayımlanmış hesabatlar + kopyala */}
+      {/* Yayımlanmış hesabatlar */}
       {published.length > 0 && (
         <div className="card" style={{ marginBottom: 20 }}>
           <div className="card-title" style={{ color: '#7c3aed' }}>📋 Yayımlanmış Hesabatlar</div>
@@ -297,31 +320,24 @@ export default function PublishReport() {
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{new Date(pub.published_at).toLocaleDateString('az')}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={async () => {
-                      setBusy(true)
-                      try {
-                        const { data } = await supabase
-                          .from('published_reports').select('report_data').eq('id', pub.id).single()
-                        if (data) {
-                          setPreview(data.report_data)
-                          setEditData(data.report_data)
-                          setActivePublishedId(pub?.id ? String(pub.id) : '')
-                          setEditing(true)
-                        }
-                      } catch(e) { toast.error('Xəta: ' + e.message) }
-                      setBusy(false)
-                    }}
-                    title="Redaktə et"
-                  >
+                  <button className="btn btn-secondary btn-sm" onClick={async () => {
+                    setBusy(true)
+                    try {
+                      const { data, error } = await supabase
+                        .from('published_reports').select('report_data').eq('id', String(pub.id)).single()
+                      if (error) throw new Error(error.message)
+                      const rd = data.report_data
+                      activePubIdRef.current = String(pub.id)
+                      editDataRef.current = rd
+                      setPreview(rd)
+                      setEditData(rd)
+                      setEditing(true)
+                    } catch(e) { toast.error('Xəta: ' + e.message) }
+                    setBusy(false)
+                  }}>
                     <Edit2 size={12}/> Redaktə
                   </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => { setCopyModal({ report: pub }); setNewPeriodName('') }}
-                    title="Bu hesabatın road map-ini yeni dövrə kopyala"
-                  >
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setCopyModal({ report: pub }); setNewPeriodName('') }}>
                     <Copy size={12}/> Kopyala
                   </button>
                 </div>
@@ -337,7 +353,9 @@ export default function PublishReport() {
           <div className="card" style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div className="card-title" style={{ marginBottom: 0 }}>Xülasə — {preview.period}</div>
-              <button className="btn btn-secondary btn-sm" onClick={openEdit}><Edit2 size={13}/> Redaktə Et</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => openEdit(activePubIdRef.current)}>
+                <Edit2 size={13}/> Redaktə Et
+              </button>
             </div>
             <table className="data-table">
               <thead>
@@ -394,10 +412,10 @@ export default function PublishReport() {
       {editing && editData && (
         <EditModal
           data={editData}
-          onChange={(platId, field, val) => editPlat(platId, field, val)}
+          onChange={editPlat}
           onSave={saveEdit}
           onClose={() => setEditing(false)}
-          onPublish={() => publish(editData)}
+          onPublish={() => publish(editDataRef.current || editData)}
           busy={busy}
         />
       )}
@@ -433,7 +451,7 @@ export default function PublishReport() {
   )
 }
 
-// ── Gantt ────────────────────────────────────────
+// ── Gantt mini preview ────────────────────────────
 function MiniGantt({ planned, acc }) {
   const hasGantt = planned?.some(p => p.start_month)
   if (!hasGantt) return null
@@ -466,15 +484,11 @@ function MiniGantt({ planned, acc }) {
                     return (
                       <td key={mi} style={{ padding: '2px 1px', height: 28, position: 'relative', minWidth: 36 }}>
                         <div style={{ borderRight: '1px solid #f1f3f9', height: '100%', position: 'absolute', right: 0, top: 0 }}/>
-                        {inRange && (
-                          <div style={{ position:'absolute', left:1, right:1, top:7, height:14, borderRadius:3, background: st.color, opacity:.5 }}/>
-                        )}
+                        {inRange && <div style={{ position:'absolute', left:1, right:1, top:7, height:14, borderRadius:3, background: st.color, opacity:.5 }}/>}
                         {isMsEnd && (
                           <div style={{ position:'absolute', right:-6, top:5, display:'flex', alignItems:'center', gap:4, zIndex:2, whiteSpace:'nowrap' }}>
                             <div style={{ width:10, height:10, background:'#D85A30', transform:'rotate(45deg)', flexShrink:0 }}/>
-                            {item.milestone_label && (
-                              <span style={{ fontSize:10, fontWeight:600, color:'#D85A30', lineHeight:1 }}>{item.milestone_label}</span>
-                            )}
+                            {item.milestone_label && <span style={{ fontSize:10, fontWeight:600, color:'#D85A30', lineHeight:1 }}>{item.milestone_label}</span>}
                           </div>
                         )}
                       </td>
@@ -504,7 +518,6 @@ function MiniGantt({ planned, acc }) {
 function PlatformPreviewCard({ p, idx, onAddScreenshots, onRemoveScreenshot }) {
   const acc = p.color || '#6366f1'
   const isEven = idx % 2 === 0
-  const plannedTexts = p.planned?.map(i => typeof i === 'string' ? i : i.text) || []
 
   return (
     <div style={{ border: `1.5px solid ${acc}30`, borderRadius: 16, overflow: 'hidden', background: isEven ? 'rgba(255,255,255,0.8)' : 'rgba(248,250,255,0.8)' }}>
@@ -515,12 +528,11 @@ function PlatformPreviewCard({ p, idx, onAddScreenshots, onRemoveScreenshot }) {
           {p.tagline && <div style={{ fontSize: 13, color: '#6b7280' }}>{p.tagline}</div>}
         </div>
         {p.issue && (
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '4px 10px' }}>
+          <div style={{ marginLeft: 'auto', fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '4px 10px' }}>
             ⚠️ {p.issue}
           </div>
         )}
       </div>
-
       <div style={{ padding: '20px' }}>
         {p.stats?.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(p.stats.length, 4)}, 1fr)`, gap: 10, marginBottom: 20 }}>
@@ -532,28 +544,21 @@ function PlatformPreviewCard({ p, idx, onAddScreenshots, onRemoveScreenshot }) {
             ))}
           </div>
         )}
-
-        {/* 2 sütun: görülən + road map. Şəkil ayrı bölmə */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: p.screenshots?.length ? 16 : 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #d1fae5' }}>
-              ✓ Görülən İşlər
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #d1fae5' }}>✓ Görülən İşlər</div>
             {p.done?.length ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {p.done.map((d, i) => (
                   <li key={i} style={{ display: 'flex', gap: 8, fontSize: 14, color: '#374151', padding: '5px 0', borderBottom: i < p.done.length-1 ? '1px solid rgba(0,0,0,.05)' : 'none' }}>
-                    <span style={{ color: '#059669', fontWeight: 700, flexShrink: 0 }}>✓</span>{d}
+                    <span style={{ color: '#059669', fontWeight: 700 }}>✓</span>{d}
                   </li>
                 ))}
               </ul>
             ) : <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Məlumat yoxdur</div>}
           </div>
-
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #ede9fe' }}>
-              🗺️ Yol Xəritəsi
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #ede9fe' }}>🗺️ Yol Xəritəsi</div>
             {p.planned?.length ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {p.planned.map((item, i) => {
@@ -570,16 +575,8 @@ function PlatformPreviewCard({ p, idx, onAddScreenshots, onRemoveScreenshot }) {
             ) : <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Məlumat yoxdur</div>}
           </div>
         </div>
-
-        {/* Şəkillər — əlavə etmə ilə */}
-        <PreviewScreenshots
-          screenshots={p.screenshots || []}
-          acc={acc}
-          onAdd={onAddScreenshots}
-          onRemove={onRemoveScreenshot}
-        />
-
-        <MiniGantt planned={p.planned} acc={acc} />
+        <PreviewScreenshots screenshots={p.screenshots || []} acc={acc} onAdd={onAddScreenshots} onRemove={onRemoveScreenshot}/>
+        <MiniGantt planned={p.planned} acc={acc}/>
       </div>
     </div>
   )
@@ -589,7 +586,7 @@ function PlatformPreviewCard({ p, idx, onAddScreenshots, onRemoveScreenshot }) {
 function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
   const IS = { width:'100%', padding:'8px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:14, fontFamily:'inherit', outline:'none', background:'#fff' }
   const SS = { padding:'7px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', background:'#fff', width:'100%' }
-  const ST = (color, label) => (
+  const SH = (color, label) => (
     <div style={{ fontSize:12, fontWeight:700, color, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8, paddingBottom:5, borderBottom:`2px solid ${color}22` }}>{label}</div>
   )
 
@@ -614,12 +611,15 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:'1px solid #f1f3f9' }}>
           <div style={{ fontSize:17, fontWeight:700, color:'#0f172a' }}>✏️ Redaktə — {data.period}</div>
           <div style={{ display:'flex', gap:8 }}>
-            <button className="btn btn-success btn-sm" onClick={onSave} disabled={busy}><Save size={13}/> {busy ? 'Saxlanılır...' : 'Saxla'}</button>
-            <button className="btn btn-primary btn-sm" onClick={onPublish} disabled={busy}><Send size={13}/> Yayımla</button>
+            <button className="btn btn-success btn-sm" onClick={onSave} disabled={busy}>
+              <Save size={13}/> {busy ? 'Saxlanılır...' : 'Saxla'}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={onPublish} disabled={busy}>
+              <Send size={13}/> Yayımla
+            </button>
             <button onClick={onClose} style={{ width:32, height:32, borderRadius:'50%', background:'#f4f6fb', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, color:'#6b7280' }}>✕</button>
           </div>
         </div>
-
         <div style={{ padding:'20px 24px', maxHeight:'75vh', overflowY:'auto' }}>
           {data.platforms.map(p => {
             const acc = p.color || '#6366f1'
@@ -633,7 +633,7 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
 
                   {/* Görülən */}
                   <div>
-                    {ST('#059669', '✓ Görülən İşlər')}
+                    {SH('#059669', '✓ Görülən İşlər')}
                     {(p.done || []).map((item, i) => (
                       <div key={i} style={{ display:'flex', gap:6, marginBottom:6 }}>
                         <input style={{...IS, flex:1}} value={item}
@@ -648,7 +648,7 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
 
                   {/* Road Map */}
                   <div>
-                    {ST('#7c3aed', '🗺️ Yol Xəritəsi (Road Map)')}
+                    {SH('#7c3aed', '🗺️ Yol Xəritəsi (Road Map)')}
                     {(p.planned || []).map((item, i) => (
                       <div key={i} style={{ marginBottom:10, padding:'10px 12px', background:'rgba(124,58,237,0.03)', borderRadius:10, border:'1px solid rgba(124,58,237,0.12)' }}>
                         <div style={{ display:'flex', gap:6, marginBottom:8 }}>
@@ -657,7 +657,6 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
                           <button onClick={() => removePlanned(p.id, i)}
                             style={{ padding:'0 10px', border:'1.5px solid #fecaca', borderRadius:8, background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:14 }}>✕</button>
                         </div>
-                        {/* Status + aylar */}
                         <div style={{ display:'grid', gridTemplateColumns:'auto 1fr 1fr', gap:8, marginBottom:8, alignItems:'center' }}>
                           <select value={item.status || 'pending'}
                             onChange={e => updatePlanned(p.id, i, 'status', e.target.value)}
@@ -700,7 +699,7 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
 
                   {/* KPI */}
                   <div>
-                    {ST('#6366f1', '📊 KPI / Statistika')}
+                    {SH('#6366f1', '📊 KPI / Statistika')}
                     {(p.stats || []).map((s, i) => (
                       <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:6, marginBottom:6 }}>
                         <input style={IS} value={s.l||''} placeholder="Göstərici"
@@ -717,9 +716,29 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
 
                   {/* Qeyd */}
                   <div>
-                    {ST('#d97706', '⚠️ Qeyd / Problem')}
+                    {SH('#d97706', '⚠️ Qeyd / Problem')}
                     <textarea style={{...IS, resize:'vertical', minHeight:54}} value={p.issue||''}
                       onChange={e => onChange(p.id,'issue',e.target.value)} placeholder="Mövcud problem..."/>
+                  </div>
+
+                  {/* Şəkillər */}
+                  <div>
+                    {SH('#6366f1', '📷 Ekran Görüntüləri')}
+                    {(p.screenshots || []).length > 0 && (
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(100px,1fr))', gap:8, marginBottom:10, maxHeight:160, overflowY:'auto' }}>
+                        {(p.screenshots || []).map((ss, i) => (
+                          <div key={i} style={{ position:'relative', aspectRatio:'16/10' }}>
+                            <img src={ss} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:8, border:'1.5px solid #e5e7eb', display:'block' }}/>
+                            <button onClick={() => onChange(p.id,'screenshots',(p.screenshots||[]).filter((_,j)=>j!==i))}
+                              style={{ position:'absolute', top:-6, right:-6, width:18, height:18, borderRadius:'50%', background:'#dc2626', color:'#fff', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <EditModalDropzone onAdd={files => {
+                      const urls = files.map(f => URL.createObjectURL(f))
+                      onChange(p.id, 'screenshots', [...(p.screenshots||[]), ...urls])
+                    }}/>
                   </div>
                 </div>
               </div>
@@ -735,17 +754,13 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
 function PreviewScreenshots({ screenshots, acc, onAdd, onRemove }) {
   const onDrop = useCallback(files => {
     if (!onAdd) return
-    const urls = files.map(f => URL.createObjectURL(f))
-    onAdd(urls)
+    onAdd(files.map(f => URL.createObjectURL(f)))
   }, [onAdd])
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'image/*': [] }, noClick: false
-  })
-
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] } })
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>📷 Şəkillər ({screenshots.length})</span>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, paddingBottom: 6, borderBottom: '2px solid #e0e7ff' }}>
+        📷 Şəkillər ({screenshots.length})
       </div>
       {screenshots.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8, maxHeight: 200, overflowY: 'auto', padding: '2px 0', marginBottom: 10 }}>
@@ -754,9 +769,7 @@ function PreviewScreenshots({ screenshots, acc, onAdd, onRemove }) {
               <img src={ss} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb', display: 'block' }}/>
               {onRemove && (
                 <button onClick={() => onRemove(i)}
-                  style={{ position:'absolute', top:-6, right:-6, width:18, height:18, borderRadius:'50%', background:'#dc2626', color:'#fff', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>
-                  ✕
-                </button>
+                  style={{ position:'absolute', top:-6, right:-6, width:18, height:18, borderRadius:'50%', background:'#dc2626', color:'#fff', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>✕</button>
               )}
             </div>
           ))}
@@ -769,6 +782,19 @@ function PreviewScreenshots({ screenshots, acc, onAdd, onRemove }) {
           <div style={{ fontSize: 12, color: '#9ca3af' }}>Şəkil əlavə etmək üçün klik edin</div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── EditModal üçün dropzone ───────────────────────────────
+function EditModalDropzone({ onAdd }) {
+  const onDrop = useCallback(files => onAdd(files), [onAdd])
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] } })
+  return (
+    <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? '#6366f1' : '#c4b5fd'}`, borderRadius: 10, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: isDragActive ? 'rgba(99,102,241,.06)' : 'rgba(99,102,241,.02)', transition: 'all .2s' }}>
+      <input {...getInputProps()}/>
+      <div style={{ fontSize: 18, color: '#a5b4fc', marginBottom: 3 }}>↑</div>
+      <div style={{ fontSize: 12, color: '#9ca3af' }}>Şəkil əlavə etmək üçün klik edin</div>
     </div>
   )
 }
