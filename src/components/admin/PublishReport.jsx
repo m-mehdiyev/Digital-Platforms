@@ -91,7 +91,7 @@ export default function PublishReport() {
       setPreview(data)
       // Mövcud published report varsa id-sini saxla
       const existing = published.find(p => p.period_label === period)
-      setActivePublishedId(existing?.id || null)
+      setActivePublishedId(existing?.id ? String(existing.id) : null)
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
   }
@@ -161,7 +161,7 @@ export default function PublishReport() {
 
   function openEdit(reportId) {
     setEditData(JSON.parse(JSON.stringify(preview)))
-    if (reportId) setActivePublishedId(reportId)
+    if (reportId) setActivePublishedId(String(reportId))
     setEditing(true)
   }
 
@@ -194,10 +194,11 @@ export default function PublishReport() {
       // 2. Supabase-də published_reports-u yenilə və ya yeni insert et
       if (activePublishedId) {
         // Mövcud hesabatı UPDATE et
+        const pubId = String(activePublishedId)
         const { error } = await supabase
           .from('published_reports')
           .update({ report_data: updatedData, published_at: new Date().toISOString() })
-          .eq('id', activePublishedId)
+          .eq('id', pubId)
         if (error) throw new Error(error.message)
       } else {
         // Yeni hesabat olaraq INSERT et
@@ -206,7 +207,7 @@ export default function PublishReport() {
           .insert({ period_label: updatedData.period, report_data: updatedData, published_at: new Date().toISOString() })
           .select('id').single()
         if (error) throw new Error(error.message)
-        setActivePublishedId(inserted.id)
+        setActivePublishedId(inserted?.id ? String(inserted.id) : null)
       }
 
       setEditData(updatedData)
@@ -284,7 +285,7 @@ export default function PublishReport() {
                         if (data) {
                           setPreview(data.report_data)
                           setEditData(data.report_data)
-                          setActivePublishedId(pub.id)
+                          setActivePublishedId(pub?.id ? String(pub.id) : null)
                           setEditing(true)
                         }
                       } catch(e) { toast.error('Xəta: ' + e.message) }
