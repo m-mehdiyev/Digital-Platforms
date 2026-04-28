@@ -64,6 +64,7 @@ export default function PublishReport() {
   const [published, setPublished]   = useState([])
   const [copyModal, setCopyModal]   = useState(null) // { report }
   const [newPeriodName, setNewPeriodName] = useState('')
+  const [activePublishedId, setActivePublishedId] = useState(null) // redaktə edilən report-un DB id-si
 
   useEffect(() => { fetchData() }, [])
 
@@ -88,6 +89,9 @@ export default function PublishReport() {
     try {
       const data = await gatherReportData(period, platforms)
       setPreview(data)
+      // Mövcud published report varsa id-sini saxla
+      const existing = published.find(p => p.period_label === period)
+      setActivePublishedId(existing?.id || null)
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
   }
@@ -102,7 +106,7 @@ export default function PublishReport() {
       })
       if (error) throw new Error(error.message)
       toast.success('✅ Hesabat yayımlandı!')
-      setPreview(null); setEditing(false); setEditData(null)
+      setPreview(null); setEditing(false); setEditData(null); setActivePublishedId(null)
       fetchData()
     } catch (e) { toast.error('Xəta: ' + e.message) }
     setBusy(false)
@@ -155,15 +159,65 @@ export default function PublishReport() {
     setBusy(false)
   }
 
-  function openEdit() {
+  function openEdit(reportId) {
     setEditData(JSON.parse(JSON.stringify(preview)))
+    if (reportId) setActivePublishedId(reportId)
     setEditing(true)
   }
 
-  function saveEdit() {
-    setPreview(editData)
-    setEditing(false)
-    toast.success('Dəyişikliklər yadda saxlanıldı')
+  async function saveEdit() {
+    setBusy(true)
+    try {
+      // 1. blob: URL-ləri Storage-ə yüklə, real URL-lərlə əvəz et
+      const updatedData = JSON.parse(JSON.stringify(editData))
+      for (const plat of updatedData.platforms) {
+        const uploaded = []
+        for (const url of (plat.screenshots || [])) {
+          if (url.startsWith('blob:')) {
+            const resp = await fetch(url)
+            const blob = await resp.blob()
+            const ext = blob.type.split('/')[1] || 'png'
+            const path = `screenshots/edit_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+            const { error: upErr } = await supabase.storage
+              .from('platform-assets')
+              .upload(path, blob, { contentType: blob.type })
+            if (upErr) { toast.error('Şəkil yüklənmədi: ' + upErr.message); continue }
+            const { data: ud } = supabase.storage.from('platform-assets').getPublicUrl(path)
+            uploaded.push(ud.publicUrl)
+          } else {
+            uploaded.push(url)
+          }
+        }
+        plat.screenshots = uploaded
+      }
+
+      // 2. Supabase-də published_reports-u yenilə və ya yeni insert et
+      if (activePublishedId) {
+        // Mövcud hesabatı UPDATE et
+        const { error } = await supabase
+          .from('published_reports')
+          .update({ report_data: updatedData, published_at: new Date().toISOString() })
+          .eq('id', activePublishedId)
+        if (error) throw new Error(error.message)
+      } else {
+        // Yeni hesabat olaraq INSERT et
+        const { data: inserted, error } = await supabase
+          .from('published_reports')
+          .insert({ period_label: updatedData.period, report_data: updatedData, published_at: new Date().toISOString() })
+          .select('id').single()
+        if (error) throw new Error(error.message)
+        setActivePublishedId(inserted.id)
+      }
+
+      setEditData(updatedData)
+      setPreview(updatedData)
+      setEditing(false)
+      fetchData()
+      toast.success('✅ Dəyişikliklər saxlanıldı')
+    } catch (e) {
+      toast.error('Xəta: ' + e.message)
+    }
+    setBusy(false)
   }
 
   function editPlat(platId, field, val) {
@@ -197,7 +251,7 @@ export default function PublishReport() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
             <label className="form-label">Hesabat Dövrü</label>
-            <select className="form-select" value={period} onChange={e => { setPeriod(e.target.value); setPreview(null) }}>
+            <select className="form-select" value={period} onChange={e => { setPeriod(e.target.value); setPreview(null); setActivePublishedId(null) }}>
               <option value="">Seçin...</option>
               {periods.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -219,13 +273,35 @@ export default function PublishReport() {
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{pub.period_label}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{new Date(pub.published_at).toLocaleDateString('az')}</div>
                 </div>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => { setCopyModal({ report: pub }); setNewPeriodName('') }}
-                  title="Bu hesabatın road map-ini yeni dövrə kopyala"
-                >
-                  <Copy size={12}/> Kopyala
-                </button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={async () => {
+                      setBusy(true)
+                      try {
+                        const { data } = await supabase
+                          .from('published_reports').select('report_data').eq('id', pub.id).single()
+                        if (data) {
+                          setPreview(data.report_data)
+                          setEditData(data.report_data)
+                          setActivePublishedId(pub.id)
+                          setEditing(true)
+                        }
+                      } catch(e) { toast.error('Xəta: ' + e.message) }
+                      setBusy(false)
+                    }}
+                    title="Redaktə et"
+                  >
+                    <Edit2 size={12}/> Redaktə
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setCopyModal({ report: pub }); setNewPeriodName('') }}
+                    title="Bu hesabatın road map-ini yeni dövrə kopyala"
+                  >
+                    <Copy size={12}/> Kopyala
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -515,7 +591,7 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:'1px solid #f1f3f9' }}>
           <div style={{ fontSize:17, fontWeight:700, color:'#0f172a' }}>✏️ Redaktə — {data.period}</div>
           <div style={{ display:'flex', gap:8 }}>
-            <button className="btn btn-success btn-sm" onClick={onSave}><Save size={13}/> Saxla</button>
+            <button className="btn btn-success btn-sm" onClick={onSave} disabled={busy}><Save size={13}/> {busy ? 'Saxlanılır...' : 'Saxla'}</button>
             <button className="btn btn-primary btn-sm" onClick={onPublish} disabled={busy}><Send size={13}/> Yayımla</button>
             <button onClick={onClose} style={{ width:32, height:32, borderRadius:'50%', background:'#f4f6fb', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, color:'#6b7280' }}>✕</button>
           </div>
@@ -622,28 +698,6 @@ function EditModal({ data, onChange, onSave, onClose, onPublish, busy }) {
                     <textarea style={{...IS, resize:'vertical', minHeight:54}} value={p.issue||''}
                       onChange={e => onChange(p.id,'issue',e.target.value)} placeholder="Mövcud problem..."/>
                   </div>
-
-                  {/* Şəkillər */}
-                  <div>
-                    {ST('#6366f1', '📷 Ekran Görüntüləri')}
-                    {(p.screenshots || []).length > 0 && (
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(100px,1fr))', gap:8, marginBottom:10, maxHeight:160, overflowY:'auto' }}>
-                        {(p.screenshots || []).map((ss, i) => (
-                          <div key={i} style={{ position:'relative', aspectRatio:'16/10' }}>
-                            <img src={ss} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:8, border:'1.5px solid #e5e7eb', display:'block' }}/>
-                            <button onClick={() => onChange(p.id,'screenshots',(p.screenshots||[]).filter((_,j)=>j!==i))}
-                              style={{ position:'absolute', top:-6, right:-6, width:18, height:18, borderRadius:'50%', background:'#dc2626', color:'#fff', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <EditModalDropzone onAdd={files => {
-                      const urls = files.map(f => URL.createObjectURL(f))
-                      onChange(p.id, 'screenshots', [...(p.screenshots||[]), ...urls])
-                    }}/>
-                  </div>
                 </div>
               </div>
             )
@@ -692,27 +746,6 @@ function PreviewScreenshots({ screenshots, acc, onAdd, onRemove }) {
           <div style={{ fontSize: 12, color: '#9ca3af' }}>Şəkil əlavə etmək üçün klik edin</div>
         </div>
       )}
-    </div>
-  )
-}
-
-// ── EditModal üçün kiçik dropzone ────────────────────────
-function EditModalDropzone({ onAdd }) {
-  const onDrop = useCallback(files => onAdd(files), [onAdd])
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'image/*': [] }
-  })
-  return (
-    <div {...getRootProps()} style={{
-      border: `2px dashed ${isDragActive ? '#6366f1' : '#c4b5fd'}`,
-      borderRadius: 10, padding: '12px 16px', textAlign: 'center',
-      cursor: 'pointer',
-      background: isDragActive ? 'rgba(99,102,241,.06)' : 'rgba(99,102,241,.02)',
-      transition: 'all .2s'
-    }}>
-      <input {...getInputProps()}/>
-      <div style={{ fontSize: 18, color: '#a5b4fc', marginBottom: 3 }}>↑</div>
-      <div style={{ fontSize: 12, color: '#9ca3af' }}>Şəkil əlavə etmək üçün klik edin</div>
     </div>
   )
 }
